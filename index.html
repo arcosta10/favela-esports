@@ -1193,7 +1193,7 @@ Regras:
       if(!uPhotos[slot]) continue;
       content.push({
         type: 'image',
-        source: { type: 'base64', media_type: 'image/png', data: uPhotos[slot].split(',')[1] }
+        source: { type: 'base64', media_type: uPhotos[slot].split(';')[0].split(':')[1], data: uPhotos[slot].split(',')[1] }
       });
     }
 
