@@ -785,13 +785,17 @@ function goto(page,el){
   renderPage(page);
 }
 
-async function renderPage(page){
+async function renderPage(page, skipSync=false){
   const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
-  document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>`;
-  await loadAll(); // usa cache se já tiver dados
+  // Se skipSync=true, não busca dados — usa o estado atual em memória
+  // Isso evita que dados recém-inseridos sejam sobrescritos por leitura do GitHub
+  if(!skipSync){
+    document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>`;
+    await loadAll();
+  }
   const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports};
   document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
   setTimeout(()=>initCharts(page),80);
@@ -1715,7 +1719,7 @@ async function saveMatch(){
   MATCHES = [newMatch, ...MATCHES];
   uPhotos={foto1:null,foto2:null};
   closeModal();
-  renderPage('matches');
+  renderPage('matches', true); // skipSync=true — não rebusca GitHub, usa estado atual
   showToast('Partida salva! Sincronizando...', 'info', 2500);
 
   // Persiste no GitHub + localStorage
@@ -1792,7 +1796,7 @@ function confirmDelMatch(id){
   saveCache();
   closeModal();
   // Re-renderiza a página de partidas com dados atualizados
-  renderPage('matches');
+  renderPage('matches', true);
   // Persiste exclusão no GitHub
   syncBg(()=>persistAll());
 }
@@ -1806,7 +1810,7 @@ function savePlayer(){
   if(!nick){alert('Informe o nickname.');return}
   const tempId = Date.now();
   PLAYERS.push({id:tempId, nick, ativo:true});
-  saveCache(); closeModal(); renderPage('players');
+  saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
 }
 function modalEditPlayer(id,nick){openModal('Editar Jogador',`<div class="fg"><label>Nickname</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})">Salvar</button>`)}
@@ -1814,13 +1818,13 @@ function updPlayer(id){
   const nick=document.getElementById('ep-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
   PLAYERS = PLAYERS.map(p=>+p.id===+id?{...p,nick}:p);
-  saveCache(); closeModal(); renderPage('players');
+  saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
 }
 function delPlayer(id){
   if(!confirm('Excluir jogador?'))return;
   PLAYERS = PLAYERS.filter(p=>+p.id!==+id);
-  saveCache(); renderPage('players');
+  saveCache(); renderPage('players', true);
   syncBg(()=>persistAll());
 }
 
@@ -1838,7 +1842,7 @@ function saveEvent(){
   if(!t||!d){alert('Preencha título e data.');return}
   const ev={id:Date.now(),titulo:t,data:d,tipo:document.getElementById('ev-tp').value,descricao:document.getElementById('ev-desc').value.trim()};
   EVENTS.push(ev); EVENTS.sort((a,b)=>a.data>b.data?1:-1);
-  saveCache(); closeModal(); renderPage('calendar');
+  saveCache(); closeModal(); renderPage('calendar', true);
   syncBg(()=>persistAll());
 }
 function modalEditEvent(id){
@@ -1856,13 +1860,13 @@ function updEvent(id){
   const tipo=document.getElementById('ev-tp').value;
   const descricao=document.getElementById('ev-desc').value.trim();
   EVENTS=EVENTS.map(e=>+e.id===+id?{...e,titulo,data,tipo,descricao}:e);
-  saveCache(); closeModal(); renderPage('calendar');
+  saveCache(); closeModal(); renderPage('calendar', true);
   syncBg(()=>persistAll());
 }
 function delEvent(id){
   if(!confirm('Excluir evento?'))return;
   EVENTS=EVENTS.filter(e=>+e.id!==+id);
-  saveCache(); renderPage('calendar');
+  saveCache(); renderPage('calendar', true);
   syncBg(()=>persistAll());
 }
 function showDayEvs(ds){
