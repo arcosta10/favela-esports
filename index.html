@@ -2,9 +2,6 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FAVELA E-Sports</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -525,49 +522,30 @@ async function doLogin(){
       const p=document.getElementById('lPass').value;
       if(e===ADMIN_EMAIL && p===ADMIN_PASS){
         CURRENT_USER={role:'admin',nick:'Administrador'};
-        // Tenta carregar dados com timeout de 5 segundos
-        try{
-          await Promise.race([
-            loadAll(true),
-            new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))
-          ]);
-        }catch(e){
-          // Se falhar ou timeout, continua com dados do cache local
-          try{
-            const p=localStorage.getItem('fv_players');
-            const m=localStorage.getItem('fv_matches');
-            const ev=localStorage.getItem('fv_events');
-            if(p) PLAYERS=JSON.parse(p);
-            if(m) MATCHES=JSON.parse(m);
-            if(ev) EVENTS=JSON.parse(ev);
-          }catch(e2){}
-        }
         openApp();
+        // Carrega dados em background após entrar
+        loadAll(true).catch(()=>{});
       } else { throw new Error('Credenciais inválidas'); }
     } else {
       const pid=document.getElementById('lNick').value;
       const p=document.getElementById('lPassP').value;
       if(!pid) throw new Error('Selecione seu nick');
       if(p!==PLAYER_PASS) throw new Error('Senha incorreta');
-      const player=PLAYERS.find(x=>+x.id===+pid);
-      if(!player) throw new Error('Jogador não encontrado');
-      CURRENT_USER={role:'player',nick:player.nick,pid:player.id};
-      try{
-        await Promise.race([
-          loadAll(true),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))
-        ]);
-      }catch(e){
+      // Para jogador, tenta carregar lista se estiver vazia
+      if(!PLAYERS.length){
         try{
-          const p=localStorage.getItem('fv_players');
-          const m=localStorage.getItem('fv_matches');
-          const ev=localStorage.getItem('fv_events');
-          if(p) PLAYERS=JSON.parse(p);
-          if(m) MATCHES=JSON.parse(m);
-          if(ev) EVENTS=JSON.parse(ev);
-        }catch(e2){}
+          const data = await Promise.race([
+            ghRead('jogadores'),
+            new Promise((_,r)=>setTimeout(()=>r([]),4000))
+          ]);
+          if(data?.length) PLAYERS=data;
+        }catch(e){}
       }
+      const player=PLAYERS.find(x=>+x.id===+pid);
+      if(!player) throw new Error('Jogador não encontrado. Recarregue a página.');
+      CURRENT_USER={role:'player',nick:player.nick,pid:player.id};
       openApp();
+      loadAll(true).catch(()=>{});
     }
   } catch(e){
     err.textContent=e.message||'Erro ao conectar';
