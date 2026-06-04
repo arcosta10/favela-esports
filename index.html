@@ -1453,17 +1453,11 @@ async function saveMatch(){
     let foto1_url = uPhotos.foto1||null;
     let foto2_url = uPhotos.foto2||null;
 
-    const arr = await sbPost('partidas', {data, scrim:scrim||null, mapa, foto1_url, foto2_url});    const partida = Array.isArray(arr) ? arr[0] : arr;
-    if(!partida?.id) throw new Error('Partida não foi criada corretamente.');
-    for(const s of stats){
-      await sbPost('estatisticas', {...s, partida_id: partida.id});
-    }
-    uPhotos={foto1:null,foto2:null};
-
-    // Gera ID único para a partida
+    // Gera ID único para a partida e salva localmente
     const partida = { id: Date.now(), data, scrim: scrim||null, mapa, foto1_url, foto2_url, estatisticas: stats };
     MATCHES = [partida, ...MATCHES];
     saveCache();
+    uPhotos={foto1:null,foto2:null};
     closeModal();
     renderPage('matches');
     // Salva no GitHub em background
