@@ -350,61 +350,63 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ============================================================
-// SUPABASE CONFIG
+// CONFIG
 // ============================================================
-const SB_URL  = 'https://qmmcvqlxnrgdigpkssed.supabase.co';
-const SB_ANON = 'sb_publishable_oGOey-VZF9v31JSxjvAIBw_dl0qfwYW';
-
 const ADMIN_EMAIL = 'admin@favela.gg';
 const ADMIN_PASS  = 'admin123';
 const PLAYER_PASS = 'favela123';
 
+// GitHub como banco de dados
+const GH_REPO  = 'arcosta10/favela-esports';
+const GH_TOKEN = localStorage.getItem('gh_token') || '';
+const GH_API   = 'https://api.github.com/repos/' + GH_REPO + '/contents/data/';
+
 // ============================================================
-// API - fetch com modo no-cors fallback
+// GITHUB DATABASE API
 // ============================================================
-const H = {
-  'apikey': SB_ANON,
-  'Authorization': 'Bearer ' + SB_ANON,
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-};
-
-async function sbGet(table, query) {
-  const url = SB_URL + '/rest/v1/' + table + '?' + (query||'');
-  const r = await fetch(url, { method:'GET', headers: H, mode:'cors' });
-  if (!r.ok) { const t = await r.text(); throw new Error(t); }
-  return r.json();
+async function ghRead(file){
+  try{
+    const r = await fetch('https://raw.githubusercontent.com/' + GH_REPO + '/main/data/' + file + '.json?t=' + Date.now());
+    if(!r.ok) return [];
+    return r.json();
+  }catch(e){ return []; }
 }
 
-async function sbPost(table, body) {
-  const url = SB_URL + '/rest/v1/' + table;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { ...H, 'Prefer': 'return=representation' },
-    body: JSON.stringify(body),
-    mode: 'cors'
+async function ghWrite(file, data){
+  const token = localStorage.getItem('gh_token') || '';
+  if(!token) throw new Error('Token GitHub não configurado. Vá em ⚙️ e configure o token.');
+  
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+  
+  // Pega SHA atual do arquivo
+  let sha = '';
+  try{
+    const r = await fetch(GH_API + file + '.json', {
+      headers: { 'Authorization': 'token ' + token, 'User-Agent': 'favela-esports' }
+    });
+    if(r.ok){ const d = await r.json(); sha = d.sha; }
+  }catch(e){}
+  
+  const body = { message: 'Update ' + file, content, branch: 'main' };
+  if(sha) body.sha = sha;
+  
+  const r = await fetch(GH_API + file + '.json', {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'token ' + token,
+      'Content-Type': 'application/json',
+      'User-Agent': 'favela-esports'
+    },
+    body: JSON.stringify(body)
   });
-  if (!r.ok) { const t = await r.text(); throw new Error(t); }
+  if(!r.ok){ const t = await r.text(); throw new Error('GitHub: ' + t.substring(0,100)); }
   return r.json();
 }
 
-async function sbPatch(table, id, body) {
-  const url = SB_URL + '/rest/v1/' + table + '?id=eq.' + id;
-  const r = await fetch(url, {
-    method: 'PATCH',
-    headers: { ...H, 'Prefer': 'return=representation' },
-    body: JSON.stringify(body),
-    mode: 'cors'
-  });
-  if (!r.ok) { const t = await r.text(); throw new Error(t); }
-  return r.json();
-}
-
-async function sbDelete(table, id) {
-  const url = SB_URL + '/rest/v1/' + table + '?id=eq.' + id;
-  const r = await fetch(url, { method:'DELETE', headers: H, mode:'cors' });
-  if (!r.ok) { const t = await r.text(); throw new Error(t); }
-}
+// Funções de compatibilidade (não usadas mas mantidas para evitar erros)
+async function sbPost(t,b){ return b; }
+async function sbPatch(t,i,b){ return b; }
+async function sbDelete(t,i){ return; }
 
 // ============================================================
 // STATE
@@ -452,32 +454,30 @@ function getRanked(){
 async function loadAll(force=false){
   if(!force && PLAYERS.length>0){ setSyncStatus('ok'); return; }
 
-  // SEMPRE carrega localStorage primeiro — dados nunca somem
+  // Carrega localStorage imediatamente
   try{
     const p=localStorage.getItem('fv_players');
     const m=localStorage.getItem('fv_matches');
     const ev=localStorage.getItem('fv_events');
-    if(p && JSON.parse(p).length>0) PLAYERS=JSON.parse(p);
+    if(p) PLAYERS=JSON.parse(p);
     if(m) MATCHES=JSON.parse(m);
     if(ev) EVENTS=JSON.parse(ev);
   }catch(e){}
 
-  // Tenta sincronizar com Supabase (sem travar a tela)
+  // Sincroniza com GitHub
   setSyncStatus('loading');
   try {
-    const timeout = new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),8000));
-    const sync = Promise.all([
-      sbGet('jogadores', 'order=id&ativo=eq.true'),
-      sbGet('partidas',  'order=data.desc&select=*,estatisticas(*)'),
-      sbGet('eventos',   'order=data'),
+    const [players, matches, events] = await Promise.all([
+      ghRead('jogadores'),
+      ghRead('partidas'),
+      ghRead('eventos'),
     ]);
-    const [players, matches, events] = await Promise.race([sync, timeout.then(()=>{throw new Error('timeout')})]);
-    if(players && players.length>0){ PLAYERS=players; localStorage.setItem('fv_players',JSON.stringify(PLAYERS)); }
-    if(matches && matches.length>=0){ MATCHES=matches; localStorage.setItem('fv_matches',JSON.stringify(MATCHES)); }
-    if(events  && events.length>=0){  EVENTS=events;  localStorage.setItem('fv_events', JSON.stringify(EVENTS));  }
+    if(players?.length>0){ PLAYERS=players; localStorage.setItem('fv_players',JSON.stringify(PLAYERS)); }
+    if(matches?.length>=0){ MATCHES=matches; localStorage.setItem('fv_matches',JSON.stringify(MATCHES)); }
+    if(events?.length>=0){  EVENTS=events;  localStorage.setItem('fv_events', JSON.stringify(EVENTS));  }
     setSyncStatus('ok');
   } catch(e){
-    // Supabase falhou — dados do localStorage já estão carregados, continua normalmente
+    console.warn('GitHub sync falhou, usando cache local:', e.message);
     setSyncStatus('err');
   }
 }
@@ -638,20 +638,29 @@ async function renderPage(page){
 }
 
 function openSettings(){
-  const saved = localStorage.getItem('claude_key')||'';
-  openModal('Configurações',`
+  const claudeKey = localStorage.getItem('claude_key')||'';
+  const ghToken = localStorage.getItem('gh_token')||'';
+  openModal('⚙️ Configurações',`
     <div class="fg">
+      <label>Token GitHub <span style="color:var(--red)">*</span> (para salvar dados)</label>
+      <input type="password" class="finput" id="cfg-gh" value="${ghToken}" placeholder="ghp_...">
+      <p style="font-size:11px;color:var(--gray);margin-top:4px">Necessário para salvar partidas, jogadores e eventos.</p>
+    </div>
+    <div class="fg" style="margin-top:12px">
       <label>Chave API Claude (para leitura de prints)</label>
-      <input type="password" class="finput" id="cfg-key" value="${saved}" placeholder="sk-ant-...">
-      <p style="font-size:11px;color:var(--gray);margin-top:4px">A chave fica salva apenas no seu celular.</p>
+      <input type="password" class="finput" id="cfg-key" value="${claudeKey}" placeholder="sk-ant-...">
+      <p style="font-size:11px;color:var(--gray);margin-top:4px">Necessário para usar a leitura automática de prints.</p>
     </div>`,
     `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
      <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Salvar</button>`
   );
 }
 function saveSettings(){
-  const key = document.getElementById('cfg-key').value.trim();
-  if(key) localStorage.setItem('claude_key', key);
+  const ghToken = document.getElementById('cfg-gh').value.trim();
+  const claudeKey = document.getElementById('cfg-key').value.trim();
+  if(ghToken) localStorage.setItem('gh_token', ghToken);
+  else localStorage.removeItem('gh_token');
+  if(claudeKey) localStorage.setItem('claude_key', claudeKey);
   else localStorage.removeItem('claude_key');
   closeModal();
   alert('✓ Configurações salvas!');
@@ -1459,16 +1468,9 @@ async function saveMatch(){
   if(!stats.length){alert('Erro ao ler dados dos jogadores. Tente novamente.');return}
 
   try {
-    // Upload fotos para o Storage (se existirem)
-    let foto1_url = null, foto2_url = null;
-    if(uPhotos.foto1){
-      try{ foto1_url = await uploadPhoto(uPhotos.foto1, 'colocacao.jpg'); }
-      catch(e){ console.warn('Upload foto1 falhou:', e.message); }
-    }
-    if(uPhotos.foto2){
-      try{ foto2_url = await uploadPhoto(uPhotos.foto2, 'stats.jpg'); }
-      catch(e){ console.warn('Upload foto2 falhou:', e.message); }
-    }
+    // Fotos ficam em base64 no JSON (sem upload externo)
+    let foto1_url = uPhotos.foto1||null;
+    let foto2_url = uPhotos.foto2||null;
 
     const arr = await sbPost('partidas', {data, scrim:scrim||null, mapa, foto1_url, foto2_url});    const partida = Array.isArray(arr) ? arr[0] : arr;
     if(!partida?.id) throw new Error('Partida não foi criada corretamente.');
@@ -1477,22 +1479,14 @@ async function saveMatch(){
     }
     uPhotos={foto1:null,foto2:null};
 
-    // Atualiza cache local imediatamente com os novos dados
-    const newMatch = {
-      id: partida.id,
-      data, scrim: scrim||null, mapa,
-      foto1_url: foto1_url||null,
-      foto2_url: foto2_url||null,
-      estatisticas: stats.map(s=>({...s, partida_id: partida.id}))
-    };
-    MATCHES = [newMatch, ...MATCHES];
-    localStorage.setItem('fv_matches', JSON.stringify(MATCHES));
-
+    // Gera ID único para a partida
+    const partida = { id: Date.now(), data, scrim: scrim||null, mapa, foto1_url, foto2_url, estatisticas: stats };
+    MATCHES = [partida, ...MATCHES];
+    saveCache();
     closeModal();
     renderPage('matches');
-
-    // Sincroniza com Supabase em background
-    loadAll(true).catch(()=>{});
+    // Salva no GitHub em background
+    syncBg(()=>ghWrite('partidas', MATCHES));
   } catch(e){
     console.error('[saveMatch]', e);
     alert('Erro ao salvar: '+e.message);
@@ -1516,12 +1510,20 @@ function modalViewMatch(id){
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fb(m.foto1_url,'Foto Colocação','fa-image')}${fb(m.foto2_url,'Foto Estatísticas','fa-chart-bar')}</div></div>`);
 }
 function openFullPhoto(src,label){openModal(label,`<img src="${src}" style="width:100%;display:block;border-radius:2px">`)}
-// ── helper: salva cache e sincroniza Supabase em background ──
-function syncBg(fn){ fn().catch(e=>console.warn('Sync bg failed:',e.message)); }
 function saveCache(){
   localStorage.setItem('fv_players',JSON.stringify(PLAYERS));
   localStorage.setItem('fv_matches',JSON.stringify(MATCHES));
   localStorage.setItem('fv_events', JSON.stringify(EVENTS));
+}
+
+function syncBg(fn){ fn().catch(e=>console.warn('Sync bg failed:',e.message)); }
+
+function syncAll(){
+  syncBg(async()=>{
+    await ghWrite('jogadores', PLAYERS);
+    await ghWrite('partidas',  MATCHES);
+    await ghWrite('eventos',   EVENTS);
+  });
 }
 
 function delMatch(id){
@@ -1530,8 +1532,7 @@ function delMatch(id){
   MATCHES = MATCHES.filter(m=>+m.id!==+id);
   saveCache();
   renderPage('matches');
-  // Sincroniza Supabase em background
-  syncBg(()=>sbDelete('partidas', id));
+  syncBg(()=>ghWrite('partidas', MATCHES));
 }
 
 // ============================================================
@@ -1544,11 +1545,7 @@ function savePlayer(){
   const tempId = Date.now();
   PLAYERS.push({id:tempId, nick, ativo:true});
   saveCache(); closeModal(); renderPage('players');
-  syncBg(async()=>{
-    const res = await sbPost('jogadores',{nick,ativo:true});
-    const real = Array.isArray(res)?res[0]:res;
-    if(real?.id){ PLAYERS = PLAYERS.map(p=>p.id===tempId?{...p,id:real.id}:p); saveCache(); }
-  });
+  syncBg(()=>ghWrite('jogadores', PLAYERS));
 }
 function modalEditPlayer(id,nick){openModal('Editar Jogador',`<div class="fg"><label>Nickname</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})">Salvar</button>`)}
 function updPlayer(id){
@@ -1556,13 +1553,13 @@ function updPlayer(id){
   if(!nick){alert('Informe o nickname.');return}
   PLAYERS = PLAYERS.map(p=>+p.id===+id?{...p,nick}:p);
   saveCache(); closeModal(); renderPage('players');
-  syncBg(()=>sbPatch('jogadores',id,{nick}));
+  syncBg(()=>ghWrite('jogadores', PLAYERS));
 }
 function delPlayer(id){
   if(!confirm('Excluir jogador?'))return;
   PLAYERS = PLAYERS.filter(p=>+p.id!==+id);
   saveCache(); renderPage('players');
-  syncBg(()=>sbPatch('jogadores',id,{ativo:false}));
+  syncBg(()=>ghWrite('jogadores', PLAYERS));
 }
 
 // ============================================================
@@ -1580,11 +1577,7 @@ function saveEvent(){
   const ev={id:Date.now(),titulo:t,data:d,tipo:document.getElementById('ev-tp').value,descricao:document.getElementById('ev-desc').value.trim()};
   EVENTS.push(ev); EVENTS.sort((a,b)=>a.data>b.data?1:-1);
   saveCache(); closeModal(); renderPage('calendar');
-  syncBg(async()=>{
-    const res=await sbPost('eventos',{titulo:ev.titulo,data:ev.data,tipo:ev.tipo,descricao:ev.descricao});
-    const real=Array.isArray(res)?res[0]:res;
-    if(real?.id){EVENTS=EVENTS.map(e=>e.id===ev.id?{...e,id:real.id}:e);saveCache();}
-  });
+  syncBg(()=>ghWrite('eventos', EVENTS));
 }
 function modalEditEvent(id){
   const e=EVENTS.find(x=>+x.id===+id);
@@ -1602,13 +1595,13 @@ function updEvent(id){
   const descricao=document.getElementById('ev-desc').value.trim();
   EVENTS=EVENTS.map(e=>+e.id===+id?{...e,titulo,data,tipo,descricao}:e);
   saveCache(); closeModal(); renderPage('calendar');
-  syncBg(()=>sbPatch('eventos',id,{titulo,data,tipo,descricao}));
+  syncBg(()=>ghWrite('eventos', EVENTS));
 }
 function delEvent(id){
   if(!confirm('Excluir evento?'))return;
   EVENTS=EVENTS.filter(e=>+e.id!==+id);
   saveCache(); renderPage('calendar');
-  syncBg(()=>sbDelete('eventos',id));
+  syncBg(()=>ghWrite('eventos', EVENTS));
 }
 function showDayEvs(ds){
   const evs=EVENTS.filter(e=>e.data===ds);if(!evs.length)return;
