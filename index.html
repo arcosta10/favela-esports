@@ -1486,9 +1486,13 @@ function modalViewMatch(id){
 }
 function openFullPhoto(src,label){openModal(label,`<img src="${src}" style="width:100%;display:block;border-radius:2px">`)}
 function saveCache(){
-  localStorage.setItem('fv_players',JSON.stringify(PLAYERS));
-  localStorage.setItem('fv_matches',JSON.stringify(MATCHES));
-  localStorage.setItem('fv_events', JSON.stringify(EVENTS));
+  // Salva sem as fotos para não lotar o localStorage
+  const matchesSemFoto = MATCHES.map(m=>({...m, foto1_url:null, foto2_url:null}));
+  try{
+    localStorage.setItem('fv_players', JSON.stringify(PLAYERS));
+    localStorage.setItem('fv_matches', JSON.stringify(matchesSemFoto));
+    localStorage.setItem('fv_events',  JSON.stringify(EVENTS));
+  }catch(e){ console.warn('localStorage cheio, ignorando cache:', e.message); }
 }
 
 function syncBg(fn){ fn().catch(e=>console.warn('Sync bg failed:',e.message)); }
