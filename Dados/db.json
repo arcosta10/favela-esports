@@ -95,52 +95,6 @@
           "partida_id": 1780614336838
         }
       ]
-    },
-    {
-      "id": 1780612515498,
-      "data": "2026-06-04",
-      "scrim": null,
-      "mapa": "Miramar",
-      "foto1_url": null,
-      "foto2_url": null,
-      "estatisticas": [
-        {
-          "jogador_id": 1,
-          "dano": 572,
-          "kills": 5,
-          "salvamentos": 1,
-          "suportes": 0,
-          "colocacao": 3,
-          "partida_id": 1780612515498
-        },
-        {
-          "jogador_id": 6,
-          "dano": 490,
-          "kills": 2,
-          "salvamentos": 2,
-          "suportes": 2,
-          "colocacao": 3,
-          "partida_id": 1780612515498
-        },
-        {
-          "jogador_id": 3,
-          "dano": 508,
-          "kills": 2,
-          "salvamentos": 0,
-          "suportes": 1,
-          "colocacao": 3,
-          "partida_id": 1780612515498
-        },
-        {
-          "jogador_id": 8,
-          "dano": 159,
-          "kills": 0,
-          "salvamentos": 0,
-          "suportes": 2,
-          "colocacao": 3,
-          "partida_id": 1780612515498
-        }
-      ]
     }
   ],
   "eventos": [],
