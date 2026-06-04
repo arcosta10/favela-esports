@@ -385,8 +385,7 @@ async function ghRead() {
   if (!r.ok) throw new Error('GitHub read failed: ' + r.status);
   const json = await r.json();
   _ghSha = json.sha;
-  const decoded = atob(json.content.replace(/
-/g,''));
+  const decoded = atob(json.content.split('\n').join(''));
   return JSON.parse(decoded);
 }
 
