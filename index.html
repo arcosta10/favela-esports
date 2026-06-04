@@ -187,6 +187,14 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,215,0,0.2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* TOAST */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:11px 18px;border-radius:3px;font-size:13px;font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:0.04em;display:flex;align-items:center;gap:8px;pointer-events:auto;animation:toastIn 0.25s ease;box-shadow:0 4px 20px rgba(0,0,0,0.4)}
+.toast.success{background:#0d0d0d;border:1px solid rgba(0,208,132,0.4);color:#00D084}
+.toast.warn{background:#0d0d0d;border:1px solid rgba(255,107,53,0.4);color:#FF6B35}
+.toast.info{background:#0d0d0d;border:1px solid rgba(255,215,0,0.3);color:var(--gold)}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
 /* ALERT */
 .alert{padding:11px 16px;font-size:13px;letter-spacing:0.03em;margin-bottom:16px;border-radius:2px}
 .alert-info{background:rgba(184,134,11,0.06);border:1px solid rgba(255,215,0,0.2);color:var(--gold)}
@@ -338,6 +346,9 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
   </div>
 </div>
 
+<!-- TOAST -->
+<div class="toast-wrap" id="toastWrap"></div>
+
 <!-- MODAL -->
 <div class="overlay hidden" id="modalOverlay" onclick="overlayClick(event)">
   <div class="modal">
@@ -390,7 +401,8 @@ async function ghRead() {
 }
 
 // Salva o db.json no GitHub (cria ou atualiza)
-async function ghWrite(data) {
+// Retry automático se SHA estiver desatualizado (conflito multi-dispositivo)
+async function ghWrite(data, retryCount=0) {
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
   const body = { message: 'update db ' + Date.now(), content };
   if (_ghSha) body.sha = _ghSha;
@@ -403,6 +415,24 @@ async function ghWrite(data) {
     },
     body: JSON.stringify(body)
   });
+
+  // 422 = SHA desatualizado (outro dispositivo escreveu antes)
+  // Solução: buscar SHA atual do GitHub, fazer merge e tentar de novo (máx 3x)
+  if (r.status === 422 && retryCount < 3) {
+    console.warn('[ghWrite] SHA desatualizado, buscando SHA atual e fazendo merge...');
+    const remote = await ghRead(); // atualiza _ghSha com valor real
+    if (remote) {
+      // Merge: dados remotos + dados locais (local tem prioridade)
+      const merged = {
+        jogadores: data.jogadores,
+        partidas : data.partidas,
+        eventos  : data.eventos,
+        _nextId  : Math.max(data._nextId || 0, remote._nextId || 0),
+      };
+      return ghWrite(merged, retryCount + 1);
+    }
+  }
+
   if (!r.ok) { const t = await r.text(); throw new Error('GitHub write failed: ' + t); }
   const res = await r.json();
   _ghSha = res.content?.sha || _ghSha;
@@ -542,8 +572,15 @@ function getPlayerPositions(pid){
 // ============================================================
 // LOAD DATA FROM GITHUB
 // ============================================================
+let _lastGhSync = 0; // timestamp do último sync com GitHub
+const GH_SYNC_TTL = 30000; // re-busca GitHub se passou mais de 30s
+
 async function loadAll(force=false){
-  if(!force && PLAYERS.length>0){ setSyncStatus('ok'); return; }
+  const now = Date.now();
+  // Usa cache local apenas se dados já existem E sync foi recente E não forçado
+  if(!force && PLAYERS.length>0 && (now - _lastGhSync) < GH_SYNC_TTL){
+    setSyncStatus('ok'); return;
+  }
 
   // Carrega localStorage primeiro para resposta imediata
   try{
@@ -569,6 +606,7 @@ async function loadAll(force=false){
       localStorage.setItem('fv_matches',JSON.stringify(MATCHES));
       localStorage.setItem('fv_events', JSON.stringify(EVENTS));
     }
+    _lastGhSync = Date.now();
     setSyncStatus('ok');
   } catch(e){
     // GitHub falhou — dados do localStorage já estão carregados
@@ -593,6 +631,7 @@ async function persistAll(){
   } catch(e){
     console.warn('GitHub write falhou (dados no localStorage):', e.message);
     setSyncStatus('err');
+    showToast('⚠️ Dados salvos localmente. Sem conexão com GitHub.', 'warn');
   }
 }
 
@@ -1255,6 +1294,16 @@ function openModal(title,body,footer=''){
 function closeModal(){document.getElementById('modalOverlay').classList.add('hidden')}
 function overlayClick(e){if(e.target===document.getElementById('modalOverlay'))closeModal()}
 
+function showToast(msg, type='info', duration=4000){
+  const wrap = document.getElementById('toastWrap');
+  if(!wrap) return;
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<i class="fas ${type==='success'?'fa-check-circle':type==='warn'?'fa-exclamation-triangle':'fa-info-circle'}"></i> ${msg}`;
+  wrap.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity 0.3s'; setTimeout(()=>t.remove(),300); }, duration);
+}
+
 
 // ============================================================
 // FOTOS — salvas só no localStorage (não vão pro GitHub)
@@ -1667,13 +1716,15 @@ async function saveMatch(){
   uPhotos={foto1:null,foto2:null};
   closeModal();
   renderPage('matches');
+  showToast('Partida salva! Sincronizando...', 'info', 2500);
 
   // Persiste no GitHub + localStorage
   try {
     await persistAll();
+    showToast('✅ Partida sincronizada com GitHub!', 'success');
   } catch(e){
     console.error('[saveMatch]', e);
-    alert('Erro ao salvar: '+e.message);
+    showToast('❌ Erro ao salvar: ' + e.message, 'warn', 6000);
   }
 }
 
