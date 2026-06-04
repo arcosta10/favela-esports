@@ -49,54 +49,7 @@
       "criado_em": "2026-06-04T05:36:10.508502+00:00"
     }
   ],
-  "partidas": [
-    {
-      "id": 1780614336838,
-      "data": "2026-06-04",
-      "scrim": null,
-      "mapa": "Rondo",
-      "foto1_url": "local:1780614336838",
-      "foto2_url": "local:1780614336838",
-      "estatisticas": [
-        {
-          "jogador_id": 1,
-          "dano": 801,
-          "kills": 6,
-          "salvamentos": 2,
-          "suportes": 0,
-          "colocacao": 5,
-          "partida_id": 1780614336838
-        },
-        {
-          "jogador_id": 6,
-          "dano": 171,
-          "kills": 0,
-          "salvamentos": 1,
-          "suportes": 2,
-          "colocacao": 5,
-          "partida_id": 1780614336838
-        },
-        {
-          "jogador_id": 3,
-          "dano": 625,
-          "kills": 3,
-          "salvamentos": 0,
-          "suportes": 1,
-          "colocacao": 5,
-          "partida_id": 1780614336838
-        },
-        {
-          "jogador_id": 8,
-          "dano": 382,
-          "kills": 1,
-          "salvamentos": 2,
-          "suportes": 1,
-          "colocacao": 5,
-          "partida_id": 1780614336838
-        }
-      ]
-    }
-  ],
+  "partidas": [],
   "eventos": [],
   "_nextId": 1780614290932
 }
