@@ -579,13 +579,13 @@ async function doLogout(){
   document.getElementById('lPassP').value='';
   setType('admin');
   // Pré-carrega jogadores para o select
-  try{PLAYERS=await sbGet('jogadores','order=id&ativo=eq.true');}catch(e){}
+  try{const p=await ghRead('jogadores');if(p?.length>0)PLAYERS=p;}catch(e){}
 }
 
 // Pré-carrega jogadores ao abrir a página (para o select de login)
 window.addEventListener('load', async ()=>{
   try{
-    PLAYERS = await sbGet('jogadores','order=id&ativo=eq.true');
+    const _p=await ghRead('jogadores');if(_p?.length>0)PLAYERS=_p;
   }catch(e){ console.warn('Pré-carregamento falhou:', e.message); }
 });
 
