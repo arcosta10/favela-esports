@@ -502,9 +502,14 @@ async function loadAll(force=false){
 async function persistAll(){
   saveCache();
   try {
-    // Lê SHA atual se não tiver
     if(!_ghSha){ try{ await ghRead(); }catch(e){} }
-    await ghWrite({ jogadores: PLAYERS, partidas: MATCHES, eventos: EVENTS, _nextId: _ghNextId });
+    // Remove base64 das fotos antes de salvar no GitHub (evita quota exceeded)
+    const matchesSafe = MATCHES.map(m => ({
+      ...m,
+      foto1_url: m.foto1_url?.startsWith('data:') ? null : (m.foto1_url || null),
+      foto2_url: m.foto2_url?.startsWith('data:') ? null : (m.foto2_url || null),
+    }));
+    await ghWrite({ jogadores: PLAYERS, partidas: matchesSafe, eventos: EVENTS, _nextId: _ghNextId });
     setSyncStatus('ok');
   } catch(e){
     console.warn('GitHub write falhou (dados no localStorage):', e.message);
@@ -1069,11 +1074,21 @@ function overlayClick(e){if(e.target===document.getElementById('modalOverlay'))c
 
 
 // ============================================================
-// FOTOS — salvas como base64 direto no JSON do GitHub
+// FOTOS — salvas só no localStorage (não vão pro GitHub)
+// Isso evita estourar o limite de tamanho do db.json
 // ============================================================
+function savePhotoLocal(base64DataUrl, matchId, slot){
+  try{
+    localStorage.setItem('fv_photo_' + matchId + '_' + slot, base64DataUrl);
+  }catch(e){ console.warn('Foto não salva localmente (storage cheio?):', e.message); }
+}
+function getPhotoLocal(matchId, slot){
+  try{ return localStorage.getItem('fv_photo_' + matchId + '_' + slot); }
+  catch(e){ return null; }
+}
 async function uploadPhoto(base64DataUrl, fileName){
-  // Retorna o próprio base64 — será salvo dentro do db.json
-  return base64DataUrl;
+  // Retorna null — foto será salva no localStorage separadamente
+  return null;
 }
 let sRows=[], uPhotos={foto1:null,foto2:null};
 
@@ -1453,10 +1468,11 @@ async function saveMatch(){
   // Gera ID único local
   const newId = Date.now();
 
-  // Upload fotos (base64 direto no JSON)
-  let foto1_url = null, foto2_url = null;
-  if(uPhotos.foto1){ try{ foto1_url = await uploadPhoto(uPhotos.foto1,'colocacao'); }catch(e){} }
-  if(uPhotos.foto2){ try{ foto2_url = await uploadPhoto(uPhotos.foto2,'stats'); }catch(e){} }
+  // Salva fotos no localStorage (não vão pro GitHub)
+  if(uPhotos.foto1) savePhotoLocal(uPhotos.foto1, newId, 'foto1');
+  if(uPhotos.foto2) savePhotoLocal(uPhotos.foto2, newId, 'foto2');
+  const foto1_url = uPhotos.foto1 ? 'local:' + newId : null;
+  const foto2_url = uPhotos.foto2 ? 'local:' + newId : null;
 
   const newMatch = {
     id: newId,
@@ -1480,6 +1496,14 @@ async function saveMatch(){
 
 function modalViewMatch(id){
   const m=MATCHES.find(x=>+x.id===+id);
+  // Resolve URL da foto: se for 'local:ID', busca do localStorage
+  const resolvePhoto=(url,slot)=>{
+    if(!url) return null;
+    if(url.startsWith('local:')){ return getPhotoLocal(url.replace('local:',''), slot); }
+    return url;
+  };
+  const src1 = resolvePhoto(m.foto1_url,'foto1');
+  const src2 = resolvePhoto(m.foto2_url,'foto2');
   const fb=(src,lbl,icon)=>src
     ?`<div style="cursor:pointer;border:1px solid var(--border);overflow:hidden" onclick="openFullPhoto('${src}','${lbl}')">
        <img src="${src}" style="width:100%;height:120px;object-fit:cover;display:block">
@@ -1492,7 +1516,7 @@ function modalViewMatch(id){
   <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Jogador</th><th>Dano</th><th>Kills</th><th>Salv.</th><th>Sup.</th><th>Col.</th></tr></thead>
   <tbody>${(m.estatisticas||[]).map(s=>{const p=PLAYERS.find(x=>+x.id===+s.jogador_id);return`<tr><td><b>${p?p.nick:'?'}</b></td><td>${fmtNum(+s.dano)}</td><td>${s.kills}</td><td>${s.salvamentos}</td><td>${s.suportes}</td><td>${s.colocacao}</td></tr>`}).join('')}</tbody></table></div></div>
   <div style="margin-top:20px"><p style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Evidências</p>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fb(m.foto1_url,'Foto Colocação','fa-image')}${fb(m.foto2_url,'Foto Estatísticas','fa-chart-bar')}</div></div>`);
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fb(src1,'Foto Colocação','fa-image')}${fb(src2,'Foto Estatísticas','fa-chart-bar')}</div></div>`);
 }
 function openFullPhoto(src,label){openModal(label,`<img src="${src}" style="width:100%;display:block;border-radius:2px">`)}
 // ── helper: executa em background sem travar a UI ──
