@@ -440,24 +440,103 @@ function currentMonthKey(){ const n=new Date(); return `${n.getFullYear()}-${Str
 function fmtMonthKey(key){ const mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; const[y,m]=key.split('-'); return `${mn[+m-1]} ${y}`; }
 
 // ============================================================
-// SCORE CALC
+// SCORE CALC — normalizado por período
+// Pesos ajustáveis aqui:
+const SCORE_WEIGHTS = { dano: 2, salvamentos: 2, kills: 1, suportes: 0.5 };
 // ============================================================
-function pStats(pid){
+
+// Retorna estatísticas brutas de um jogador em um conjunto de partidas
+function pStats(pid, matchList){
+  const ms = matchList || MATCHES;
   let dano=0,kills=0,salv=0,sup=0,col=0,n=0;
-  MATCHES.forEach(m=>(m.estatisticas||[]).forEach(s=>{
+  ms.forEach(m=>(m.estatisticas||[]).forEach(s=>{
     if(+s.jogador_id===+pid){dano+=+s.dano;kills+=+s.kills;salv+=+s.salvamentos;sup+=+s.suportes;col+=+s.colocacao;n++}
   }));
   return{dano,kills,salv,sup,col,n};
 }
-function score(st){ if(!st.n)return 0; return(st.dano/st.n)*0.6+(st.kills/st.n)*0.25+(st.salv/st.n)*0.1+(st.sup/st.n)*0.05; }
-function getRanked(){
-  return PLAYERS.map(p=>({...p,st:pStats(p.id)})).sort((a,b)=>{
-    const sa=score(a.st),sb=score(b.st);
-    if(Math.abs(sa-sb)>0.001)return sb-sa;
-    const ca=a.st.n?a.st.col/a.st.n:999,cb=b.st.n?b.st.col/b.st.n:999;
-    if(Math.abs(ca-cb)>0.001)return ca-cb;
-    return(b.st.n?b.st.dano/b.st.n:0)-(a.st.n?a.st.dano/a.st.n:0);
+
+// Calcula score normalizado de um conjunto de jogadores dentro de um período
+// Retorna array de {player, st, medias, score}
+function calcRanking(matchList){
+  const ms = matchList || MATCHES;
+
+  // 1. Calcula stats brutas de cada jogador
+  const data = PLAYERS.map(p => {
+    const st = pStats(p.id, ms);
+    const n  = st.n;
+    return {
+      ...p,
+      st,
+      medias: {
+        dano : n ? st.dano / n : 0,
+        kills: n ? st.kills / n : 0,
+        salv : n ? st.salv / n : 0,
+        sup  : n ? st.sup  / n : 0,
+        col  : n ? st.col  / n : 0,
+      }
+    };
   });
+
+  // 2. Encontra o maior valor médio de cada stat (entre jogadores com partidas)
+  const max = {
+    dano : Math.max(...data.map(p => p.medias.dano)),
+    kills: Math.max(...data.map(p => p.medias.kills)),
+    salv : Math.max(...data.map(p => p.medias.salv)),
+    sup  : Math.max(...data.map(p => p.medias.sup)),
+  };
+
+  // 3. Calcula score normalizado com os pesos + contribuições por categoria
+  const W = SCORE_WEIGHTS;
+  const SCORE_MAX = W.dano + W.salvamentos + W.kills + W.suportes; // 5.5
+  data.forEach(p => {
+    if(!p.st.n){ p.score=0; p.contrib={dano:0,salv:0,kills:0,sup:0}; return; }
+    const norm = (val, maxVal) => maxVal > 0 ? val / maxVal : 0;
+    const contrib = {
+      dano  : parseFloat((norm(p.medias.dano,  max.dano)  * W.dano        ).toFixed(3)),
+      salv  : parseFloat((norm(p.medias.salv,  max.salv)  * W.salvamentos ).toFixed(3)),
+      kills : parseFloat((norm(p.medias.kills, max.kills) * W.kills       ).toFixed(3)),
+      sup   : parseFloat((norm(p.medias.sup,   max.sup)   * W.suportes    ).toFixed(3)),
+    };
+    p.contrib = contrib;
+    p.score   = parseFloat((contrib.dano + contrib.salv + contrib.kills + contrib.sup).toFixed(2));
+    p.scorePct = parseFloat((p.score / SCORE_MAX * 100).toFixed(1));
+    p.scoreStatus = p.score >= 5.00 ? {label:'Elite',       color:'#FFD700', bg:'rgba(255,215,0,0.15)'}
+                  : p.score >= 4.00 ? {label:'Excelente',   color:'#00D084', bg:'rgba(0,208,132,0.12)'}
+                  : p.score >= 3.00 ? {label:'Muito Bom',   color:'#00B8FF', bg:'rgba(0,184,255,0.12)'}
+                  : p.score >= 2.00 ? {label:'Em Evolução', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'}
+                  :                   {label:'Melhorar',    color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
+  });
+
+  // 4. Ordena por score desc
+  return data.sort((a,b) => b.score - a.score || b.medias.dano - a.medias.dano);
+}
+
+// Atalho para score individual (compatibilidade com código existente)
+function score(st){ return 0; } // substituído — usar calcRanking()
+
+// Ranking geral (todas as partidas)
+function getRanked(){ return calcRanking(MATCHES); }
+
+// Filtros de período reutilizáveis
+function getWeekFilter(){
+  const now=new Date(); const d=now.getDay();
+  const mon=new Date(now); mon.setDate(now.getDate()-(d===0?6:d-1)); mon.setHours(0,0,0,0);
+  const sun=new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
+  return MATCHES.filter(m=>{const dt=new Date(m.data);return dt>=mon&&dt<=sun;});
+}
+function getMonthFilter(){
+  const ym=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  return MATCHES.filter(m=>m.data?.startsWith(ym));
+}
+
+// Posições de um jogador nos 3 rankings principais
+function getPlayerPositions(pid){
+  const posIn = (rk) => { const i=rk.findIndex(p=>+p.id===+pid); return i>=0?i+1:'-'; };
+  return {
+    geral   : posIn(calcRanking(MATCHES)),
+    semanal : posIn(calcRanking(getWeekFilter())),
+    mensal  : posIn(calcRanking(getMonthFilter())),
+  };
 }
 
 // ============================================================
@@ -704,7 +783,7 @@ function pgDashboard(){
   <div class="cards-row">
     <div class="sc" style="--sc-color:var(--purple2)"><div class="sc-label">Partidas Individuais</div><div class="sc-val">${total}</div><div class="sc-sub">${MATCHES.length} mapa(s) registrado(s)</div><i class="fas fa-gamepad sc-ico"></i></div>
     <div class="sc" style="--sc-color:var(--blue2)"><div class="sc-label">Jogadores</div><div class="sc-val">${PLAYERS.length}</div><div class="sc-sub">${aptos} apto(s)</div><i class="fas fa-users sc-ico"></i></div>
-    <div class="sc" style="--sc-color:var(--gold)"><div class="sc-label">Líder Geral</div><div class="sc-val" style="font-size:${best?'18px':'30px'};color:var(--gold)">${best?best.nick:'-'}</div><div class="sc-sub">${best?fmtNum(score(best.st))+' pts':'Sem partidas'}</div><i class="fas fa-crown sc-ico"></i></div>
+    <div class="sc" style="--sc-color:var(--gold)"><div class="sc-label">Líder Geral</div><div class="sc-val" style="font-size:${best?'18px':'30px'};color:var(--gold)">${best?best.nick:'-'}</div><div class="sc-sub">${best?'Score '+best.score:'Sem partidas'}</div><i class="fas fa-crown sc-ico"></i></div>
     <div class="sc" style="--sc-color:var(--cyan)"><div class="sc-label">Próximo Evento</div><div class="sc-val" style="font-size:${proxEv?'14px':'30px'};color:var(--cyan)">${proxEv?proxEv.titulo:'-'}</div><div class="sc-sub">${proxEv?proxEv.data:'Sem eventos'}</div><i class="fas fa-calendar sc-ico"></i></div>
   </div>
   ${total===0?`<div class="empty"><i class="fas fa-crosshairs"></i><h3>Sem partidas ainda</h3><p>Acesse Partidas e comece a registrar.</p></div>`:`
@@ -715,7 +794,7 @@ function pgDashboard(){
       <div class="tp-card">
         <div class="tp-num ${i===0?'gold':''}">${String(i+1).padStart(2,'0')}</div>
         <div style="flex:1"><div class="tp-nick">${p.nick}</div>
-        <div class="tp-info">Score ${fmtNum(score(p.st))} | Dano ${fmtNum(p.st.dano/p.st.n)}/pt | Kills ${(p.st.kills/p.st.n).toFixed(1)}</div>
+        <div class="tp-info">Score ${p.score} | Dano ${fmtNum(p.medias?.dano??0)}/pt | Kills ${(p.medias?.kills??0).toFixed(1)}</div>
         <span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}" style="margin-top:5px;display:inline-flex">${p.st.n>=40?'APTO':'NÃO APTO'}</span></div>
       </div>`).join('')}
     </div>
@@ -731,92 +810,124 @@ function pgDashboard(){
 // ============================================================
 // RANKINGS
 // ============================================================
-function buildRankTbl(matchFilter, label, icon, color){
-  const filtered=MATCHES.filter(matchFilter);
-  if(!filtered.length) return`<div class="empty" style="padding:40px"><i class="fas ${icon}" style="color:${color}"></i><h3>${label}</h3><p>Nenhuma partida neste período.</p></div>`;
-  const rk=PLAYERS.map(p=>{
-    let dano=0,kills=0,salv=0,sup=0,col=0,n=0;
-    filtered.forEach(m=>(m.estatisticas||[]).forEach(s=>{
-      if(+s.jogador_id===+p.id){dano+=+s.dano;kills+=+s.kills;salv+=+s.salvamentos;sup+=+s.suportes;col+=+s.colocacao;n++}
-    }));
-    return{...p,st:{dano,kills,salv,sup,col,n}};
-  }).sort((a,b)=>{const sa=score(a.st),sb=score(b.st);return Math.abs(sa-sb)>0.001?sb-sa:0});
-  const best=rk.find(p=>p.st.n>0);
+// Constrói tabela de ranking normalizado para um conjunto de partidas
+function buildRankTbl(matchList, label, icon, color){
+  if(!matchList.length) return`<div class="empty" style="padding:40px"><i class="fas ${icon}" style="color:${color}"></i><h3>${label}</h3><p>Nenhuma partida neste período.</p></div>`;
+  const rk = calcRanking(matchList);
+  const best = rk.find(p=>p.st.n>0);
   const getPeriodLabel=()=>{
     const now=new Date();
-    if(label.includes('Diário')) return now.toLocaleDateString('pt-BR');
-    if(label.includes('Semanal')){ const d=now.getDay(); const mon=new Date(now); mon.setDate(now.getDate()-(d===0?6:d-1)); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return `${mon.getDate()}/${mon.getMonth()+1} - ${sun.getDate()}/${sun.getMonth()+1}`; }
+    if(label.includes('Semanal')){ const d=now.getDay(); const mon=new Date(now); mon.setDate(now.getDate()-(d===0?6:d-1)); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return `${mon.getDate()}/${mon.getMonth()+1} — ${sun.getDate()}/${sun.getMonth()+1}`; }
     if(label.includes('Mensal')){ const mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return `${mn[now.getMonth()]} ${now.getFullYear()}`; }
-    return 'Acumulado';
+    return `${matchList.length} partida(s)`;
   };
+  const W = SCORE_WEIGHTS;
+  const scoreMax = W.dano + W.salvamentos + W.kills + W.suportes;
   return`<div class="tw">
     <div class="tw-hdr">
       <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label} <span style="color:var(--gray);font-size:11px;font-weight:400;letter-spacing:0.05em">${getPeriodLabel()}</span></h3>
-      ${best?`<span style="font-size:12px;color:${color}">MVP: <b>${best.nick}</b> ${fmtNum(score(best.st))}pts</span>`:''}
+      ${best?`<span style="font-size:12px;color:${color}"><i class="fas fa-crown" style="margin-right:4px"></i>MVP: <b>${best.nick}</b> — ${best.score} / ${scoreMax}</span>`:''}
     </div>
-    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
-    <tbody>${rk.map((p,i)=>{const st=p.st,n=st.n,s=score(st),gn=pStats(p.id).n,rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-    return`<tr><td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
-    <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-    <td><span class="score-val">${n?fmtNum(s):'-'}</span></td>
-    <td>${n?fmtNum(st.dano/n):'-'}</td><td>${n?(st.kills/n).toFixed(2):'-'}</td>
-    <td>${n?(st.salv/n).toFixed(2):'-'}</td><td>${n?(st.sup/n).toFixed(2):'-'}</td>
-    <td>${n?(st.col/n).toFixed(1):'-'}</td><td>${n} partida(s)</td>
-    <td><span class="badge ${gn>=40?'badge-apto':'badge-napto'}">${gn>=40?'APTO':'NÃO APTO'}</span></td></tr>`;}).join('')}
+    <div style="background:rgba(255,215,0,0.04);padding:8px 16px;font-size:11px;color:var(--gray);border-bottom:1px solid rgba(255,215,0,0.08)">
+      <i class="fas fa-info-circle" style="color:var(--gold2);margin-right:5px"></i>
+      Pesos: Dano ×${W.dano} · Salvamentos ×${W.salvamentos} · Kills ×${W.kills} · Suportes ×${W.suportes} · Score máx: <b style="color:var(--gold)">${scoreMax}</b>
+    </div>
+    <div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Nível</th><th>Composição do Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Aptidão</th></tr></thead>
+    <tbody>${rk.map((p,i)=>{
+      const {st,medias,score:sc,contrib,scorePct,scoreStatus} = p;
+      const n=st.n, gn=pStats(p.id).n, rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+      const barW = n ? scorePct : 0;
+      const contribBar = (val, max, clr) => `
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+          <div style="width:60px;background:var(--bg2);height:5px;border-radius:2px;flex-shrink:0">
+            <div style="width:${n?(val/max*100).toFixed(0):0}%;height:100%;background:${clr};border-radius:2px;transition:width 0.4s"></div>
+          </div>
+          <span style="font-size:9px;color:var(--gray);min-width:60px">${n?val.toFixed(2):'0.00'} / ${max.toFixed(2)}</span>
+        </div>`;
+      return`<tr>
+        <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
+        <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+        <td style="min-width:110px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:${n&&scoreStatus?scoreStatus.color:'var(--gray)'};line-height:1">
+            ${n?sc:'—'}<span style="font-size:11px;font-weight:400;color:var(--gray)"> / ${scoreMax}</span>
+          </div>
+          ${n?`<div style="background:var(--bg2);height:5px;border-radius:2px;margin-top:4px;width:90px">
+            <div style="width:${barW}%;height:100%;background:linear-gradient(90deg,${scoreStatus.color}99,${scoreStatus.color});border-radius:2px;transition:width 0.4s"></div>
+          </div>
+          <div style="font-size:9px;color:var(--gray);margin-top:2px">${scorePct}% do máx.</div>`:''}
+        </td>
+        <td>
+          ${n?`<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:0.08em;background:${scoreStatus.bg};color:${scoreStatus.color};border:1px solid ${scoreStatus.color}44">${scoreStatus.label}</span>`:'<span style="color:var(--gray);font-size:11px">—</span>'}
+        </td>
+        <td style="min-width:140px">
+          ${n?`
+          <div style="font-size:9px;color:var(--gray);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Composição</div>
+          ${contribBar(contrib.dano,  W.dano,        '#FF6B35')}
+          ${contribBar(contrib.salv,  W.salvamentos, '#00D084')}
+          ${contribBar(contrib.kills, W.kills,       '#FFD700')}
+          ${contribBar(contrib.sup,   W.suportes,    '#00B8FF')}
+          <div style="font-size:8px;color:var(--dim);margin-top:3px">🟠Dano 🟢Salv 🟡Kills 🔵Sup</div>`:'<span style="color:var(--gray);font-size:11px">Sem dados</span>'}
+        </td>
+        <td>${n?fmtNum(medias.dano):'-'}</td>
+        <td>${n?medias.kills.toFixed(2):'-'}</td>
+        <td>${n?medias.salv.toFixed(2):'-'}</td>
+        <td>${n?medias.sup.toFixed(2):'-'}</td>
+        <td>${n?medias.col.toFixed(1):'-'}</td>
+        <td>${n}</td>
+        <td><span class="badge ${gn>=40?'badge-apto':'badge-napto'}">${gn>=40?'APTO':'N.APTO'}</span></td>
+      </tr>`;}).join('')}
     </tbody></table></div></div>`;
 }
 
 function pgRankings(){
   const tid=window._rkt||'rkg';
   const now=new Date(); const tod=now.toISOString().slice(0,10);
-  const day=now.getDay(); const mon=new Date(now); mon.setDate(now.getDate()-(day===0?6:day-1)); mon.setHours(0,0,0,0);
-  const sun=new Date(mon); sun.setDate(mon.getDate()+6); sun.setHours(23,59,59,999);
-  const ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  const filters={
-    rkg:()=>true, rkd:m=>m.data===tod,
-    rks:m=>{const d=new Date(m.data);return d>=mon&&d<=sun;},
-    rkm:m=>m.data?.startsWith(ym),
-    rkk:()=>true, rkdn:()=>true,
-  };
+  const rkGeral = calcRanking(MATCHES);
+  const rkSemanal = calcRanking(getWeekFilter());
+  const rkMensal  = calcRanking(getMonthFilter());
+
   const tabs=[
     {id:'rkg',label:'Geral',icon:'fa-layer-group',color:'var(--accent)'},
-    {id:'rkd',label:'Diário',icon:'fa-sun',color:'var(--cyan)'},
     {id:'rks',label:'Semanal',icon:'fa-calendar-week',color:'var(--gold)'},
     {id:'rkm',label:'Mensal',icon:'fa-calendar-alt',color:'var(--purple-g)'},
     {id:'rkk',label:'Por Kills',icon:'fa-skull-crossbones',color:'var(--red)'},
     {id:'rkdn',label:'Por Dano',icon:'fa-fire',color:'var(--gold)'},
   ];
-  const rkGeral=getRanked();
-  const tblKills=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-skull-crossbones" style="color:var(--gold);margin-right:6px"></i>Por Kills - Acumulado</h3></div>
+
+  const tblKills=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-skull-crossbones" style="color:var(--red);margin-right:6px"></i>Por Kills — Geral</h3></div>
   <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Total Kills</th><th>Kills/Pt</th><th>Partidas</th><th>Status</th></tr></thead>
   <tbody>${rkGeral.slice().sort((a,b)=>b.st.kills-a.st.kills).map((p,i)=>`<tr>
-  <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
-  <td><b style="${pStats(p.id).n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-  <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.kills}</td>
-  <td>${p.st.n?(p.st.kills/p.st.n).toFixed(2):'-'}</td><td>${p.st.n}</td>
-  <td><span class="badge ${pStats(p.id).n>=40?'badge-apto':'badge-napto'}">${pStats(p.id).n>=40?'APTO':'NÃO APTO'}</span></td></tr>`).join('')}
-  </tbody></table></div></div>`;
-  const tblDano=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-fire" style="color:var(--gold);margin-right:6px"></i>Por Dano Médio - Acumulado</h3></div>
+    <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
+    <td><b style="${p.st.n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+    <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.kills}</td>
+    <td>${p.st.n?p.medias.kills.toFixed(2):'-'}</td><td>${p.st.n}</td>
+    <td><span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}">${p.st.n>=40?'APTO':'N.APTO'}</span></td>
+  </tr>`).join('')}</tbody></table></div></div>`;
+
+  const tblDano=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-fire" style="color:var(--gold);margin-right:6px"></i>Por Dano Médio — Geral</h3></div>
   <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Dano Total</th><th>Dano/Pt</th><th>Partidas</th><th>Status</th></tr></thead>
-  <tbody>${rkGeral.slice().sort((a,b)=>{const da=a.st.n?a.st.dano/a.st.n:0,db=b.st.n?b.st.dano/b.st.n:0;return db-da}).map((p,i)=>`<tr>
-  <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
-  <td><b style="${pStats(p.id).n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-  <td>${fmtNum(p.st.dano)}</td>
-  <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.n?fmtNum(p.st.dano/p.st.n):'-'}</td>
-  <td>${p.st.n}</td>
-  <td><span class="badge ${pStats(p.id).n>=40?'badge-apto':'badge-napto'}">${pStats(p.id).n>=40?'APTO':'NÃO APTO'}</span></td></tr>`).join('')}
-  </tbody></table></div></div>`;
+  <tbody>${rkGeral.slice().sort((a,b)=>b.medias.dano-a.medias.dano).map((p,i)=>`<tr>
+    <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
+    <td><b style="${p.st.n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+    <td>${fmtNum(p.st.dano)}</td>
+    <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.n?fmtNum(p.medias.dano):'-'}</td>
+    <td>${p.st.n}</td>
+    <td><span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}">${p.st.n>=40?'APTO':'N.APTO'}</span></td>
+  </tr>`).join('')}</tbody></table></div></div>`;
+
   const contents={
-    rkg:buildRankTbl(filters.rkg,'Ranking Geral','fa-layer-group','var(--accent)'),
-    rkd:buildRankTbl(filters.rkd,'Ranking Diário','fa-sun','var(--cyan)'),
-    rks:buildRankTbl(filters.rks,'Ranking Semanal','fa-calendar-week','var(--gold)'),
-    rkm:buildRankTbl(filters.rkm,'Ranking Mensal','fa-calendar-alt','var(--purple-g)'),
-    rkk:tblKills, rkdn:tblDano,
+    rkg : buildRankTbl(MATCHES,          'Ranking Geral',   'fa-layer-group',   'var(--accent)'),
+    rks : buildRankTbl(getWeekFilter(),  'Ranking Semanal', 'fa-calendar-week', 'var(--gold)'),
+    rkm : buildRankTbl(getMonthFilter(), 'Ranking Mensal',  'fa-calendar-alt',  'var(--purple-g)'),
+    rkk : tblKills,
+    rkdn: tblDano,
   };
+
   return`<div class="tabs">${tabs.map(t=>`<button class="tab ${tid===t.id?'active':''}" onclick="rkTab(event,'${t.id}')"><i class="fas ${t.icon}" style="margin-right:5px;color:${t.color}"></i>${t.label}</button>`).join('')}</div>
   ${tabs.map(t=>`<div id="${t.id}" class="${tid===t.id?'':'hidden'}">${contents[t.id]}</div>`).join('')}`;
 }
-function rkTab(e,id){window._rkt=id;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));e.currentTarget.classList.add('active');['rkg','rkd','rks','rkm','rkk','rkdn'].forEach(t=>{const el=document.getElementById(t);if(el)el.classList.toggle('hidden',t!==id)});}
+function rkTab(e,id){window._rkt=id;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));e.currentTarget.classList.add('active');['rkg','rks','rkm','rkk','rkdn'].forEach(t=>{const el=document.getElementById(t);if(el)el.classList.toggle('hidden',t!==id)});}
 
 // ============================================================
 // MATCHES
@@ -846,23 +957,113 @@ function pgMatches(){
 // PLAYERS
 // ============================================================
 function pgPlayers(){
+  const rkGeral   = calcRanking(MATCHES);
+  const rkSemanal = calcRanking(getWeekFilter());
+  const rkMensal  = calcRanking(getMonthFilter());
+  const posIn=(rk,pid)=>{const i=rk.findIndex(p=>+p.id===+pid);return i>=0?'#'+(i+1):'-';};
+  const W = SCORE_WEIGHTS;
+  const scoreMax = W.dano + W.salvamentos + W.kills + W.suportes;
+
   return`
   <div style="margin-bottom:22px"><button class="btn btn-primary" onclick="modalAddPlayer()"><i class="fas fa-plus"></i> Novo Jogador</button></div>
-  <div class="pcards">${PLAYERS.map(p=>{
-    const st=pStats(p.id),apt=st.n>=40,pct=Math.min(100,(st.n/40*100)).toFixed(0);
+  <div class="pcards" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${PLAYERS.map(p=>{
+    const st=pStats(p.id), apt=st.n>=40, pct=Math.min(100,(st.n/40*100)).toFixed(0);
+    const rkP = rkGeral.find(x=>+x.id===+p.id);
+    const sc = rkP?.score ?? 0;
+    const med = rkP?.medias ?? {dano:0,kills:0,salv:0,sup:0};
+    const scorePct = (sc/scoreMax*100).toFixed(0);
+    const posG = posIn(rkGeral,   p.id);
+    const posS = posIn(rkSemanal, p.id);
+    const posM = posIn(rkMensal,  p.id);
     return`<div class="pcard" style="--pc-color:${apt?'var(--green)':'var(--red)'}">
+      <!-- Cabeçalho -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
         <div class="pcard-nick" style="${apt?'color:var(--green)':'color:#ffffff'}">${p.nick}</div>
         <span class="badge ${apt?'badge-apto':'badge-napto'}">${apt?'APTO':'N.APTO'}</span>
       </div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;margin-bottom:2px">${st.n}<span style="font-size:13px;color:var(--gray)"> / 40</span></div>
-      ${!apt&&st.n>0?`<div style="font-size:11px;color:var(--gray);margin-bottom:4px;letter-spacing:0.05em">FALTAM ${40-st.n} PARTIDAS</div>`:''}
+
+      <!-- Score grande -->
+      ${st.n?`
+      <div style="background:${rkP?.scoreStatus?.bg||'rgba(255,215,0,0.06)'};border:1px solid ${rkP?.scoreStatus?.color||'rgba(255,215,0,0.2)'}44;border-radius:2px;padding:10px 12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div>
+            <div style="font-size:9px;color:var(--gray);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:2px">Score</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:${rkP?.scoreStatus?.color||'var(--gold)'};line-height:1">
+              ${sc}<span style="font-size:12px;font-weight:400;color:var(--gray)"> / ${scoreMax}</span>
+            </div>
+            <div style="font-size:10px;color:var(--gray);margin-top:2px">${rkP?.scorePct??0}% do máximo</div>
+          </div>
+          <span style="padding:3px 8px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:0.06em;background:${rkP?.scoreStatus?.bg};color:${rkP?.scoreStatus?.color};border:1px solid ${rkP?.scoreStatus?.color}44">${rkP?.scoreStatus?.label}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.3);height:6px;border-radius:3px;margin-bottom:10px">
+          <div style="width:${rkP?.scorePct??0}%;height:100%;background:linear-gradient(90deg,${rkP?.scoreStatus?.color||'var(--gold)'}99,${rkP?.scoreStatus?.color||'var(--gold)'});border-radius:3px;transition:width 0.5s"></div>
+        </div>
+        <!-- Composição do score -->
+        <div style="font-size:9px;color:var(--gray);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px">Composição</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          ${[
+            {label:'Dano',  val:rkP?.contrib?.dano??0,  max:2.00, color:'#FF6B35'},
+            {label:'Salv.', val:rkP?.contrib?.salv??0,  max:2.00, color:'#00D084'},
+            {label:'Kills', val:rkP?.contrib?.kills??0, max:1.00, color:'#FFD700'},
+            {label:'Sup.',  val:rkP?.contrib?.sup??0,   max:0.50, color:'#00B8FF'},
+          ].map(c=>`
+            <div style="background:rgba(0,0,0,0.25);padding:5px 7px;border-radius:2px;border-left:2px solid ${c.color}">
+              <div style="font-size:8px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">${c.label}</div>
+              <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:${c.color}">${c.val.toFixed(2)}<span style="font-size:10px;color:var(--gray)"> / ${c.max.toFixed(2)}</span></div>
+              <div style="background:rgba(0,0,0,0.3);height:3px;border-radius:2px;margin-top:3px">
+                <div style="width:${(c.val/c.max*100).toFixed(0)}%;height:100%;background:${c.color};border-radius:2px"></div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`:`
+      <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:2px;padding:10px 12px;margin-bottom:10px;text-align:center">
+        <div style="font-size:11px;color:var(--gray)">Sem partidas registradas</div>
+        <div style="font-size:9px;color:var(--dim);margin-top:3px">Score calculado após 1ª partida</div>
+      </div>`}
+
+      <!-- Posições nos 3 rankings -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px">
+        <div style="background:#111;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.1)">
+          <div style="font-size:8px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">Geral</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--gold)">${posG}</div>
+        </div>
+        <div style="background:#111;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.1)">
+          <div style="font-size:8px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">Semana</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--gold)">${posS}</div>
+        </div>
+        <div style="background:#111;padding:6px 4px;text-align:center;border:1px solid rgba(255,215,0,0.1)">
+          <div style="font-size:8px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">Mês</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--gold)">${posM}</div>
+        </div>
+      </div>
+
+      <!-- Stats médias -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px;font-size:11px">
+        <div style="padding:5px 8px;background:#111;border:1px solid rgba(255,215,0,0.08)">
+          <div style="color:var(--gray);font-size:9px;text-transform:uppercase;letter-spacing:0.1em">Dano/Pt</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--gold)">${st.n?fmtNum(med.dano):'—'}</div>
+        </div>
+        <div style="padding:5px 8px;background:#111;border:1px solid rgba(255,215,0,0.08)">
+          <div style="color:var(--gray);font-size:9px;text-transform:uppercase;letter-spacing:0.1em">Kills/Pt</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--white)">${st.n?med.kills.toFixed(2):'—'}</div>
+        </div>
+        <div style="padding:5px 8px;background:#111;border:1px solid rgba(255,215,0,0.08)">
+          <div style="color:var(--gray);font-size:9px;text-transform:uppercase;letter-spacing:0.1em">Salv./Pt</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--cyan)">${st.n?med.salv.toFixed(2):'—'}</div>
+        </div>
+        <div style="padding:5px 8px;background:#111;border:1px solid rgba(255,215,0,0.08)">
+          <div style="color:var(--gray);font-size:9px;text-transform:uppercase;letter-spacing:0.1em">Sup./Pt</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--white)">${st.n?med.sup.toFixed(2):'—'}</div>
+        </div>
+      </div>
+
+      <!-- Progresso partidas -->
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;margin-bottom:2px">${st.n}<span style="font-size:13px;color:var(--gray)"> / 40 partidas</span></div>
+      ${!apt&&st.n>0?`<div style="font-size:11px;color:var(--gray);margin-bottom:4px">FALTAM ${40-st.n}</div>`:''}
       ${!apt&&st.n===0?`<div style="font-size:11px;color:var(--gray);margin-bottom:4px">SEM PARTIDAS</div>`:''}
       <div class="pbar"><div class="pfill ${apt?'full':''}" style="width:${pct}%"></div></div>
-      <div style="display:flex;gap:14px;margin-top:12px;font-size:11px;color:var(--gray)">
-        <span><i class="fas fa-skull-crossbones" style="color:var(--gold)"></i> ${st.kills}k</span>
-        <span><i class="fas fa-fire" style="color:var(--gold)"></i> ${st.n?fmtNum(st.dano/st.n):0}dmg</span>
-      </div>
+
+      <!-- Ações -->
       <div style="display:flex;gap:6px;margin-top:12px">
         <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Editar</button>
         <button class="btn btn-danger" onclick="delPlayer(${p.id})"><i class="fas fa-trash"></i></button>
@@ -934,7 +1135,7 @@ function pgReports(){
       <div class="rp-hdr"><span class="rp-name" style="${apt?'color:var(--green)':'color:#ffffff'}">${p.nick}</span>
       <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:var(--gray)">${st.n} partida(s)</span><span class="badge ${apt?'badge-apto':'badge-napto'}">${apt?'APTO':'NÃO APTO'}</span></div></div>
       <div class="rp-grid">
-        <div class="rp-stat"><div class="rp-stat-label">Score</div><div class="rp-stat-val" style="color:var(--accent)">${fmtNum(score(st))}</div></div>
+        <div class="rp-stat"><div class="rp-stat-label">Score (Geral)</div><div class="rp-stat-val" style="color:var(--accent)">${(calcRanking(MATCHES).find(x=>+x.id===+p.id)?.score??0)}</div></div>
         <div class="rp-stat"><div class="rp-stat-label">Dano Total</div><div class="rp-stat-val">${fmtNum(st.dano)}</div></div>
         <div class="rp-stat"><div class="rp-stat-label">Dano/Pt</div><div class="rp-stat-val" style="color:var(--gold)">${fmtNum(st.dano/st.n)}</div></div>
         <div class="rp-stat"><div class="rp-stat-label">Total Kills</div><div class="rp-stat-val" style="color:var(--gold)">${st.kills}</div></div>
@@ -998,11 +1199,7 @@ function viewArc(mk){
   const byMonth={};
   MATCHES.forEach(m=>{const k=m.data?.slice(0,7)||'?';if(!byMonth[k])byMonth[k]=[];byMonth[k].push(m);});
   const ms=byMonth[mk]||[];
-  const arcRk=PLAYERS.map(p=>{
-    let dano=0,kills=0,salv=0,sup=0,col=0,n=0;
-    ms.forEach(m=>(m.estatisticas||[]).forEach(s=>{if(+s.jogador_id===+p.id){dano+=+s.dano;kills+=+s.kills;salv+=+s.salvamentos;sup+=+s.suportes;col+=+s.colocacao;n++;}}));
-    return{...p,st:{dano,kills,salv,sup,col,n}};
-  }).sort((a,b)=>score(b.st)-score(a.st));
+  const arcRk=calcRanking(ms);
   const total=ms.reduce((a,m)=>a+(m.estatisticas?.length||0),0);
   const best=arcRk.find(p=>p.st.n>0);
   const aptos=arcRk.filter(p=>p.st.n>=40).length;
@@ -1016,15 +1213,16 @@ function viewArc(mk){
       </div>
       ${best?`<div style="text-align:right"><div style="font-size:10px;color:var(--gray);letter-spacing:0.15em;text-transform:uppercase">MVP</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--gold)">${best.nick}</div>
-      <div style="font-size:11px;color:var(--gray)">${fmtNum(score(best.st))} pts</div></div>`:''}
+      <div style="font-size:11px;color:var(--gray)">${best.score} pts</div></div>`:''}
     </div>
     <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
-    <tbody>${arcRk.map((p,i)=>{const st=p.st,n=st.n,s=score(st),rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    <tbody>${arcRk.map((p,i)=>{const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const n=p.st.n;
     return`<tr><td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
     <td><b style="${n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-    <td><span class="score-val">${n?fmtNum(s):'-'}</span></td>
-    <td>${n?fmtNum(st.dano/n):'-'}</td><td>${n?(st.kills/n).toFixed(2):'-'}</td>
-    <td>${n?(st.salv/n).toFixed(2):'-'}</td><td>${n?(st.col/n).toFixed(1):'-'}</td>
+    <td><span class="score-val">${n?p.score:'-'}</span></td>
+    <td>${n?fmtNum(p.medias?.dano??0):'-'}</td><td>${n?(p.medias?.kills??0).toFixed(2):'-'}</td>
+    <td>${n?(p.medias?.salv??0).toFixed(2):'-'}</td><td>${n?(p.medias?.col??0).toFixed(1):'-'}</td>
     <td>${n}/40${n<40&&n>0?`<div class="pbar"><div class="pfill" style="width:${Math.min(100,n/40*100).toFixed(0)}%"></div></div>`:''}</td>
     <td><span class="badge ${n>=40?'badge-apto':'badge-napto'}">${n>=40?'APTO':'NÃO APTO'}</span></td></tr>`;}).join('')}
     </tbody></table></div>
