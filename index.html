@@ -327,6 +327,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
       <button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fas fa-bars"></i></button>
       <div class="tb-title" id="tb-title">Dashboard</div>
       <div class="tb-sync" id="tb-sync"><i class="fas fa-circle" style="font-size:7px"></i> Online</div>
+      <button onclick="openSettings()" style="background:none;border:1px solid rgba(255,215,0,0.2);color:var(--gold);padding:5px 10px;border-radius:2px;cursor:pointer;font-size:12px" title="Configurações"><i class="fas fa-cog"></i></button>
       <button onclick="reloadData()" style="background:none;border:1px solid rgba(255,215,0,0.2);color:var(--gold);padding:5px 10px;border-radius:2px;cursor:pointer;font-size:12px" title="Atualizar dados"><i class="fas fa-sync-alt"></i></button>
       <div class="tb-badge">PUBG MOBILE</div>
     </div>
@@ -636,7 +637,27 @@ async function renderPage(page){
   setTimeout(()=>initCharts(page),80);
 }
 
-async function reloadData(){
+async function openSettings(){
+  const saved = localStorage.getItem('claude_key')||'';
+  openModal('Configurações',`
+    <div class="fg">
+      <label>Chave API Claude (para leitura de prints)</label>
+      <input type="password" class="finput" id="cfg-key" value="${saved}" placeholder="sk-ant-...">
+      <p style="font-size:11px;color:var(--gray);margin-top:4px">A chave fica salva apenas no seu celular.</p>
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Salvar</button>`
+  );
+}
+function saveSettings(){
+  const key = document.getElementById('cfg-key').value.trim();
+  if(key) localStorage.setItem('claude_key', key);
+  else localStorage.removeItem('claude_key');
+  closeModal();
+  alert('✓ Configurações salvas!');
+}
+
+function reloadData(){
   await loadAll(true); // força busca nova
   const page = document.getElementById('tb-title').textContent.toLowerCase();
   const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports'};
@@ -1182,7 +1203,7 @@ Regras:
         'Content-Type': 'application/json',
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
-        'x-api-key': localStorage.getItem('claude_key')||''
+        'x-api-key': (localStorage.getItem('claude_key')||'')
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
