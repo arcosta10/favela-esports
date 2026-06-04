@@ -637,7 +637,7 @@ async function renderPage(page){
   setTimeout(()=>initCharts(page),80);
 }
 
-async function openSettings(){
+function openSettings(){
   const saved = localStorage.getItem('claude_key')||'';
   openModal('Configurações',`
     <div class="fg">
@@ -657,8 +657,8 @@ function saveSettings(){
   alert('✓ Configurações salvas!');
 }
 
-function reloadData(){
-  await loadAll(true); // força busca nova
+async function reloadData(){
+  await loadAll(true);
   const page = document.getElementById('tb-title').textContent.toLowerCase();
   const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports'};
   const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports};
