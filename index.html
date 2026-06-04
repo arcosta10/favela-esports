@@ -428,24 +428,95 @@ function currentMonthKey(){ const n=new Date(); return `${n.getFullYear()}-${Str
 function fmtMonthKey(key){ const mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; const[y,m]=key.split('-'); return `${mn[+m-1]} ${y}`; }
 
 // ============================================================
-// SCORE CALC
+// SCORE CALC — Sistema normalizado e justo
 // ============================================================
-function pStats(pid){
+
+// Pesos configuráveis
+const PESOS = { dano: 2, salvamentos: 2, kills: 1, suportes: 0.5 };
+
+// Calcula estatísticas de um jogador dentro de um conjunto de partidas
+function pStats(pid, matches){
+  const m = matches || MATCHES;
   let dano=0,kills=0,salv=0,sup=0,col=0,n=0;
-  MATCHES.forEach(m=>(m.estatisticas||[]).forEach(s=>{
-    if(+s.jogador_id===+pid){dano+=+s.dano;kills+=+s.kills;salv+=+s.salvamentos;sup+=+s.suportes;col+=+s.colocacao;n++}
+  m.forEach(match=>(match.estatisticas||[]).forEach(s=>{
+    if(+s.jogador_id===+pid){
+      dano+=+s.dano; kills+=+s.kills;
+      salv+=+s.salvamentos; sup+=+s.suportes;
+      col+=+s.colocacao; n++;
+    }
   }));
-  return{dano,kills,salv,sup,col,n};
+  return { dano, kills, salv, sup, col, n,
+    dano_med:   n ? dano/n   : 0,
+    kills_med:  n ? kills/n  : 0,
+    salv_med:   n ? salv/n   : 0,
+    sup_med:    n ? sup/n    : 0,
+    col_med:    n ? col/n    : 999,
+  };
 }
-function score(st){ if(!st.n)return 0; return(st.dano/st.n)*0.6+(st.kills/st.n)*0.25+(st.salv/st.n)*0.1+(st.sup/st.n)*0.05; }
-function getRanked(){
-  return PLAYERS.map(p=>({...p,st:pStats(p.id)})).sort((a,b)=>{
-    const sa=score(a.st),sb=score(b.st);
-    if(Math.abs(sa-sb)>0.001)return sb-sa;
-    const ca=a.st.n?a.st.col/a.st.n:999,cb=b.st.n?b.st.col/b.st.n:999;
-    if(Math.abs(ca-cb)>0.001)return ca-cb;
-    return(b.st.n?b.st.dano/b.st.n:0)-(a.st.n?a.st.dano/a.st.n:0);
+
+// Score normalizado: compara cada jogador com o melhor do período
+function calcScore(st, maximos){
+  if(!st.n) return 0;
+  const safe = (v,m) => m > 0 ? v/m : 0;
+  const s =
+    safe(st.dano_med,  maximos.dano)  * PESOS.dano +
+    safe(st.salv_med,  maximos.salv)  * PESOS.salvamentos +
+    safe(st.kills_med, maximos.kills) * PESOS.kills +
+    safe(st.sup_med,   maximos.sup)   * PESOS.suportes;
+  return Math.round(s * 100) / 100;
+}
+
+// Filtra partidas por período
+function matchesByPeriod(period){
+  const now = new Date();
+  if(period === 'geral') return MATCHES;
+  if(period === 'mensal'){
+    const y=now.getFullYear(), m=now.getMonth();
+    return MATCHES.filter(match=>{
+      const d=new Date(match.data);
+      return d.getFullYear()===y && d.getMonth()===m;
+    });
+  }
+  if(period === 'semanal'){
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay());
+    start.setHours(0,0,0,0);
+    return MATCHES.filter(match=> new Date(match.data) >= start);
+  }
+  return MATCHES;
+}
+
+// Gera ranking completo para um período
+function getRankedByPeriod(period){
+  const matches = matchesByPeriod(period);
+  const stats = PLAYERS.map(p=>({...p, st: pStats(p.id, matches)}));
+
+  // Encontra máximos do período
+  const maximos = {
+    dano:  Math.max(...stats.map(p=>p.st.dano_med),  0.001),
+    kills: Math.max(...stats.map(p=>p.st.kills_med), 0.001),
+    salv:  Math.max(...stats.map(p=>p.st.salv_med),  0.001),
+    sup:   Math.max(...stats.map(p=>p.st.sup_med),   0.001),
+  };
+
+  return stats
+    .map(p=>({...p, score: calcScore(p.st, maximos), maximos}))
+    .sort((a,b)=> b.score - a.score || a.st.col_med - b.st.col_med);
+}
+
+// Ranking geral (compatibilidade com código existente)
+function getRanked(){ return getRankedByPeriod('geral'); }
+function score(st){ return 0; } // mantido por compatibilidade
+
+// Posição de um jogador em cada período
+function getPlayerPositions(pid){
+  const pos = {};
+  ['geral','mensal','semanal'].forEach(p=>{
+    const ranked = getRankedByPeriod(p);
+    const idx = ranked.findIndex(r=>+r.id===+pid);
+    pos[p] = idx >= 0 ? idx+1 : '-';
   });
+  return pos;
 }
 
 // ============================================================
@@ -699,7 +770,91 @@ function pgDashboard(){
 // ============================================================
 // RANKINGS
 // ============================================================
-function buildRankTbl(matchFilter, label, icon, color){
+// Tabela de ranking para um período
+function buildRankTbl(period, label, icon, color){
+  const rk = getRankedByPeriod(period);
+  const best = rk.find(p=>p.st.n>0);
+  const APT = 40;
+  const rkGeral = getRankedByPeriod('geral');
+
+  return`<div class="tw">
+    <div class="tw-hdr">
+      <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label}</h3>
+      ${best?`<span style="font-size:12px;color:${color}">MVP: <b>${best.nick}</b> — Score ${best.score}</span>`:''}
+    </div>
+    <div style="overflow-x:auto"><table class="tbl">
+      <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
+      <tbody>${rk.map((p,i)=>{
+        const st=p.st; const n=st.n;
+        const gnTotal=rkGeral.find(r=>+r.id===+p.id)?.st?.n||0;
+        const apto=gnTotal>=APT;
+        const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+        return`<tr>
+          <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
+          <td><b style="${apto?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+          <td><span class="score-val" style="color:${color}">${n?p.score:'-'}</span></td>
+          <td>${n?fmtNum(st.dano_med):'-'}</td>
+          <td>${n?st.kills_med.toFixed(2):'-'}</td>
+          <td>${n?st.salv_med.toFixed(2):'-'}</td>
+          <td>${n?st.sup_med.toFixed(2):'-'}</td>
+          <td>${n?st.col_med.toFixed(1):'-'}</td>
+          <td>${n} partida(s)</td>
+          <td><span class="badge ${apto?'badge-apto':'badge-napto'}">${apto?'APTO':'NÃO APTO'}</span></td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table></div>
+    <div style="margin-top:8px;font-size:11px;color:var(--gray);padding:0 4px">
+      <i class="fas fa-info-circle"></i> Score = (Dano×${PESOS.dano} + Salv×${PESOS.salvamentos} + Kills×${PESOS.kills} + Sup×${PESOS.suportes}) normalizado pelo melhor do período
+    </div>
+  </div>`;
+}
+
+function pgRankings(){
+  const tid=window._rkt||'rkg';
+  const tabs=[
+    {id:'rkg',label:'Geral',      icon:'fa-layer-group',    color:'var(--accent)',   period:'geral'},
+    {id:'rks',label:'Semanal',    icon:'fa-calendar-week',  color:'var(--gold)',     period:'semanal'},
+    {id:'rkm',label:'Mensal',     icon:'fa-calendar-alt',   color:'var(--purple-g)', period:'mensal'},
+    {id:'rkk',label:'Por Kills',  icon:'fa-skull-crossbones',color:'var(--gold)',    period:'kills'},
+    {id:'rkdn',label:'Por Dano',  icon:'fa-fire',           color:'var(--gold)',     period:'dano'},
+  ];
+
+  const rkGeral = getRankedByPeriod('geral');
+
+  // Tabela por kills
+  const tblKills=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-skull-crossbones" style="color:var(--gold);margin-right:6px"></i>Ranking por Kills — Geral</h3></div>
+  <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Kills/Pt</th><th>Total Kills</th><th>Partidas</th><th>Status</th></tr></thead>
+  <tbody>${rkGeral.slice().sort((a,b)=>b.st.kills_med-a.st.kills_med).map((p,i)=>`<tr>
+    <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
+    <td><b style="${p.st.n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+    <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.n?p.st.kills_med.toFixed(2):'-'}</td>
+    <td>${p.st.kills}</td><td>${p.st.n}</td>
+    <td><span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}">${p.st.n>=40?'APTO':'NÃO APTO'}</span></td>
+  </tr>`).join('')}</tbody></table></div></div>`;
+
+  // Tabela por dano
+  const tblDano=`<div class="tw"><div class="tw-hdr"><h3><i class="fas fa-fire" style="color:var(--gold);margin-right:6px"></i>Ranking por Dano Médio — Geral</h3></div>
+  <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Dano/Pt</th><th>Dano Total</th><th>Partidas</th><th>Status</th></tr></thead>
+  <tbody>${rkGeral.slice().sort((a,b)=>b.st.dano_med-a.st.dano_med).map((p,i)=>`<tr>
+    <td><span class="${i===0?'r1':i===1?'r2':i===2?'r3':'rn'}">${String(i+1).padStart(2,'0')}</span></td>
+    <td><b style="${p.st.n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+    <td style="font-weight:700;color:var(--gold);font-family:'Barlow Condensed',sans-serif;font-size:15px">${p.st.n?fmtNum(p.st.dano_med):'-'}</td>
+    <td>${fmtNum(p.st.dano)}</td><td>${p.st.n}</td>
+    <td><span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}">${p.st.n>=40?'APTO':'NÃO APTO'}</span></td>
+  </tr>`).join('')}</tbody></table></div></div>`;
+
+  const contents={
+    rkg: buildRankTbl('geral',   'Ranking Geral',   'fa-layer-group',    'var(--accent)'),
+    rks: buildRankTbl('semanal', 'Ranking Semanal', 'fa-calendar-week',  'var(--gold)'),
+    rkm: buildRankTbl('mensal',  'Ranking Mensal',  'fa-calendar-alt',   'var(--purple-g)'),
+    rkk: tblKills,
+    rkdn: tblDano,
+  };
+
+  return`<div class="tabs">${tabs.map(t=>`<button class="tab ${tid===t.id?'active':''}" onclick="rkTab(event,'${t.id}')"><i class="fas ${t.icon}" style="margin-right:5px;color:${t.color}"></i>${t.label}</button>`).join('')}</div>
+  ${tabs.map(t=>`<div id="${t.id}" class="${tid===t.id?'':'hidden'}">${contents[t.id]}</div>`).join('')}`;
+}
+function rkTab(e,id){window._rkt=id;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));e.currentTarget.classList.add('active');['rkg','rks','rkm','rkk','rkdn'].forEach(t=>{const el=document.getElementById(t);if(el)el.classList.toggle('hidden',t!==id);});}
   const filtered=MATCHES.filter(matchFilter);
   if(!filtered.length) return`<div class="empty" style="padding:40px"><i class="fas ${icon}" style="color:${color}"></i><h3>${label}</h3><p>Nenhuma partida neste período.</p></div>`;
   const rk=PLAYERS.map(p=>{
@@ -708,31 +863,6 @@ function buildRankTbl(matchFilter, label, icon, color){
       if(+s.jogador_id===+p.id){dano+=+s.dano;kills+=+s.kills;salv+=+s.salvamentos;sup+=+s.suportes;col+=+s.colocacao;n++}
     }));
     return{...p,st:{dano,kills,salv,sup,col,n}};
-  }).sort((a,b)=>{const sa=score(a.st),sb=score(b.st);return Math.abs(sa-sb)>0.001?sb-sa:0});
-  const best=rk.find(p=>p.st.n>0);
-  const getPeriodLabel=()=>{
-    const now=new Date();
-    if(label.includes('Diário')) return now.toLocaleDateString('pt-BR');
-    if(label.includes('Semanal')){ const d=now.getDay(); const mon=new Date(now); mon.setDate(now.getDate()-(d===0?6:d-1)); const sun=new Date(mon); sun.setDate(mon.getDate()+6); return `${mon.getDate()}/${mon.getMonth()+1} - ${sun.getDate()}/${sun.getMonth()+1}`; }
-    if(label.includes('Mensal')){ const mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return `${mn[now.getMonth()]} ${now.getFullYear()}`; }
-    return 'Acumulado';
-  };
-  return`<div class="tw">
-    <div class="tw-hdr">
-      <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label} <span style="color:var(--gray);font-size:11px;font-weight:400;letter-spacing:0.05em">${getPeriodLabel()}</span></h3>
-      ${best?`<span style="font-size:12px;color:${color}">MVP: <b>${best.nick}</b> ${fmtNum(score(best.st))}pts</span>`:''}
-    </div>
-    <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
-    <tbody>${rk.map((p,i)=>{const st=p.st,n=st.n,s=score(st),gn=pStats(p.id).n,rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-    return`<tr><td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
-    <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-    <td><span class="score-val">${n?fmtNum(s):'-'}</span></td>
-    <td>${n?fmtNum(st.dano/n):'-'}</td><td>${n?(st.kills/n).toFixed(2):'-'}</td>
-    <td>${n?(st.salv/n).toFixed(2):'-'}</td><td>${n?(st.sup/n).toFixed(2):'-'}</td>
-    <td>${n?(st.col/n).toFixed(1):'-'}</td><td>${n} partida(s)</td>
-    <td><span class="badge ${gn>=40?'badge-apto':'badge-napto'}">${gn>=40?'APTO':'NÃO APTO'}</span></td></tr>`;}).join('')}
-    </tbody></table></div></div>`;
-}
 
 function pgRankings(){
   const tid=window._rkt||'rkg';
