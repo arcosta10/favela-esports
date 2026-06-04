@@ -50,6 +50,52 @@
   ],
   "partidas": [
     {
+      "id": 1780615985034,
+      "data": "2026-06-04",
+      "scrim": null,
+      "mapa": "Miramar",
+      "foto1_url": "local:1780615985034",
+      "foto2_url": "local:1780615985034",
+      "estatisticas": [
+        {
+          "jogador_id": 1780614933459,
+          "dano": 49,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 7,
+          "partida_id": 1780615985034
+        },
+        {
+          "jogador_id": 4,
+          "dano": 88,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 7,
+          "partida_id": 1780615985034
+        },
+        {
+          "jogador_id": 8,
+          "dano": 259,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 1,
+          "colocacao": 7,
+          "partida_id": 1780615985034
+        },
+        {
+          "jogador_id": 6,
+          "dano": 170,
+          "kills": 2,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 7,
+          "partida_id": 1780615985034
+        }
+      ]
+    },
+    {
       "id": 1780615884592,
       "data": "2026-06-04",
       "scrim": null,
@@ -97,5 +143,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780615423149
+  "_nextId": 1780615928707
 }
