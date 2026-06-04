@@ -833,18 +833,12 @@ function buildRankTbl(matchList, label, icon, color){
       Pesos: Dano ×${W.dano} · Salvamentos ×${W.salvamentos} · Kills ×${W.kills} · Suportes ×${W.suportes} · Score máx: <b style="color:var(--gold)">${scoreMax}</b>
     </div>
     <div style="overflow-x:auto"><table class="tbl">
-    <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Nível</th><th>Composição do Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Aptidão</th></tr></thead>
+    <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Nível</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Aptidão</th></tr></thead>
     <tbody>${rk.map((p,i)=>{
       const {st,medias,score:sc,contrib,scorePct,scoreStatus} = p;
       const n=st.n, gn=pStats(p.id).n, rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
       const barW = n ? scorePct : 0;
-      const contribBar = (val, max, clr) => `
-        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
-          <div style="width:60px;background:var(--bg2);height:5px;border-radius:2px;flex-shrink:0">
-            <div style="width:${n?(val/max*100).toFixed(0):0}%;height:100%;background:${clr};border-radius:2px;transition:width 0.4s"></div>
-          </div>
-          <span style="font-size:9px;color:var(--gray);min-width:60px">${n?val.toFixed(2):'0.00'} / ${max.toFixed(2)}</span>
-        </div>`;
+
       return`<tr>
         <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
         <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
@@ -859,15 +853,6 @@ function buildRankTbl(matchList, label, icon, color){
         </td>
         <td>
           ${n?`<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:0.08em;background:${scoreStatus.bg};color:${scoreStatus.color};border:1px solid ${scoreStatus.color}44">${scoreStatus.label}</span>`:'<span style="color:var(--gray);font-size:11px">—</span>'}
-        </td>
-        <td style="min-width:140px">
-          ${n?`
-          <div style="font-size:9px;color:var(--gray);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Composição</div>
-          ${contribBar(contrib.dano,  W.dano,        '#FF6B35')}
-          ${contribBar(contrib.salv,  W.salvamentos, '#00D084')}
-          ${contribBar(contrib.kills, W.kills,       '#FFD700')}
-          ${contribBar(contrib.sup,   W.suportes,    '#00B8FF')}
-          <div style="font-size:8px;color:var(--dim);margin-top:3px">🟠Dano 🟢Salv 🟡Kills 🔵Sup</div>`:'<span style="color:var(--gray);font-size:11px">Sem dados</span>'}
         </td>
         <td>${n?fmtNum(medias.dano):'-'}</td>
         <td>${n?medias.kills.toFixed(2):'-'}</td>
