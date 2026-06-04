@@ -771,40 +771,121 @@ function pgDashboard(){
 // RANKINGS
 // ============================================================
 // Tabela de ranking para um período
+// Score status baseado no valor
+function scoreStatus(score){
+  if(score>=5.0) return {label:'Elite',       color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
+  if(score>=4.0) return {label:'Excelente',   color:'#00E5FF', bg:'rgba(0,229,255,0.12)'};
+  if(score>=3.0) return {label:'Muito Bom',   color:'#69FF47', bg:'rgba(105,255,71,0.12)'};
+  if(score>=2.0) return {label:'Em Evolução', color:'#FFA726', bg:'rgba(255,167,38,0.12)'};
+  return               {label:'Precisa Melhorar', color:'#EF5350', bg:'rgba(239,83,80,0.12)'};
+}
+
+// Calcula contribuição de cada categoria para o score
+function scoreBreakdown(st, maximos){
+  const safe = (v,m) => m>0 ? v/m : 0;
+  return {
+    dano: Math.round(safe(st.dano_med,  maximos.dano)  * PESOS.dano       * 100) / 100,
+    salv: Math.round(safe(st.salv_med,  maximos.salv)  * PESOS.salvamentos* 100) / 100,
+    kills:Math.round(safe(st.kills_med, maximos.kills) * PESOS.kills      * 100) / 100,
+    sup:  Math.round(safe(st.sup_med,   maximos.sup)   * PESOS.suportes   * 100) / 100,
+  };
+}
+
+const SCORE_MAX = 5.5;
+
 function buildRankTbl(period, label, icon, color){
   const rk = getRankedByPeriod(period);
   const best = rk.find(p=>p.st.n>0);
   const APT = 40;
   const rkGeral = getRankedByPeriod('geral');
 
+  // Recalcula maximos para breakdown
+  const matches = matchesByPeriod(period);
+  const allStats = PLAYERS.map(p=>pStats(p.id, matches));
+  const maximos = {
+    dano:  Math.max(...allStats.map(s=>s.dano_med),  0.001),
+    kills: Math.max(...allStats.map(s=>s.kills_med), 0.001),
+    salv:  Math.max(...allStats.map(s=>s.salv_med),  0.001),
+    sup:   Math.max(...allStats.map(s=>s.sup_med),   0.001),
+  };
+
+  const rows = rk.map((p,i)=>{
+    const st=p.st; const n=st.n;
+    const gnTotal=rkGeral.find(r=>+r.id===+p.id)?.st?.n||0;
+    const apto=gnTotal>=APT;
+    const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+
+    if(!n) return`<tr>
+      <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><b style="color:#ffffff">${p.nick}</b></td>
+      <td colspan="8" style="color:var(--gray);font-size:12px;text-align:center">Sem partidas neste período</td>
+    </tr>`;
+
+    const sc = p.score;
+    const pct = Math.round(sc / SCORE_MAX * 100);
+    const status = scoreStatus(sc);
+    const bd = scoreBreakdown(st, maximos);
+
+    // Barra de progresso colorida
+    const barColor = status.color;
+    const progressBar = `<div style="width:100%;background:rgba(255,255,255,0.08);border-radius:4px;height:6px;margin-top:4px">
+      <div style="width:${pct}%;background:${barColor};height:6px;border-radius:4px;transition:width 0.5s"></div>
+    </div>`;
+
+    // Score detalhado (tooltip/breakdown)
+    const breakdown = `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <span title="Dano" style="font-size:10px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);padding:2px 6px;border-radius:3px;color:var(--gold)">
+        🔥 ${bd.dano}/${PESOS.dano}
+      </span>
+      <span title="Salvamentos" style="font-size:10px;background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);padding:2px 6px;border-radius:3px;color:#00E5FF">
+        💚 ${bd.salv}/${PESOS.salvamentos}
+      </span>
+      <span title="Kills" style="font-size:10px;background:rgba(239,83,80,0.1);border:1px solid rgba(239,83,80,0.2);padding:2px 6px;border-radius:3px;color:#EF5350">
+        💀 ${bd.kills}/${PESOS.kills}
+      </span>
+      <span title="Suportes" style="font-size:10px;background:rgba(169,0,255,0.1);border:1px solid rgba(169,0,255,0.2);padding:2px 6px;border-radius:3px;color:#CE93D8">
+        🤝 ${bd.sup}/${PESOS.suportes}
+      </span>
+    </div>`;
+
+    return`<tr>
+      <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
+      <td><b style="${apto?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
+      <td style="min-width:160px">
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;color:${status.color}">${sc.toFixed(2)}</span>
+          <span style="font-size:11px;color:var(--gray)">/ ${SCORE_MAX}</span>
+          <span style="font-size:10px;margin-left:4px;background:${status.bg};color:${status.color};padding:1px 6px;border-radius:10px;font-weight:600">${status.label}</span>
+        </div>
+        ${progressBar}
+        <div style="font-size:10px;color:var(--gray);margin-top:2px">${pct}% do máximo</div>
+        ${breakdown}
+      </td>
+      <td>${fmtNum(st.dano_med)}</td>
+      <td>${st.kills_med.toFixed(2)}</td>
+      <td>${st.salv_med.toFixed(2)}</td>
+      <td>${st.sup_med.toFixed(2)}</td>
+      <td>${st.col_med.toFixed(1)}</td>
+      <td>${n}x</td>
+      <td><span class="badge ${apto?'badge-apto':'badge-napto'}">${apto?'APTO':'NÃO APTO'}</span></td>
+    </tr>`;
+  }).join('');
+
   return`<div class="tw">
     <div class="tw-hdr">
       <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label}</h3>
-      ${best?`<span style="font-size:12px;color:${color}">MVP: <b>${best.nick}</b> — Score ${best.score}</span>`:''}
+      ${best?`<span style="font-size:12px;color:${color}">MVP: <b>${best.nick}</b> — ${best.score.toFixed(2)} / ${SCORE_MAX} (${Math.round(best.score/SCORE_MAX*100)}%)</span>`:''}
     </div>
     <div style="overflow-x:auto"><table class="tbl">
-      <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
-      <tbody>${rk.map((p,i)=>{
-        const st=p.st; const n=st.n;
-        const gnTotal=rkGeral.find(r=>+r.id===+p.id)?.st?.n||0;
-        const apto=gnTotal>=APT;
-        const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-        return`<tr>
-          <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
-          <td><b style="${apto?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-          <td><span class="score-val" style="color:${color}">${n?p.score:'-'}</span></td>
-          <td>${n?fmtNum(st.dano_med):'-'}</td>
-          <td>${n?st.kills_med.toFixed(2):'-'}</td>
-          <td>${n?st.salv_med.toFixed(2):'-'}</td>
-          <td>${n?st.sup_med.toFixed(2):'-'}</td>
-          <td>${n?st.col_med.toFixed(1):'-'}</td>
-          <td>${n} partida(s)</td>
-          <td><span class="badge ${apto?'badge-apto':'badge-napto'}">${apto?'APTO':'NÃO APTO'}</span></td>
-        </tr>`;}).join('')}
-      </tbody>
+      <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
     </table></div>
-    <div style="margin-top:8px;font-size:11px;color:var(--gray);padding:0 4px">
-      <i class="fas fa-info-circle"></i> Score = (Dano×${PESOS.dano} + Salv×${PESOS.salvamentos} + Kills×${PESOS.kills} + Sup×${PESOS.suportes}) normalizado pelo melhor do período
+    <div style="margin-top:10px;font-size:11px;color:var(--gray);padding:0 4px;display:flex;gap:16px;flex-wrap:wrap">
+      <span>🔥 Dano (max 2.0)</span>
+      <span>💚 Salvamentos (max 2.0)</span>
+      <span>💀 Kills (max 1.0)</span>
+      <span>🤝 Suportes (max 0.5)</span>
+      <span style="margin-left:auto">Score máx: ${SCORE_MAX}</span>
     </div>
   </div>`;
 }
