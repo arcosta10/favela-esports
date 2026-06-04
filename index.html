@@ -1190,9 +1190,12 @@ Regras:
 
     for(const slot of ['foto1','foto2']){
       if(!uPhotos[slot]) continue;
+      const dataUrl = uPhotos[slot];
+      const mimeMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+      const media_type = mimeMatch ? mimeMatch[1] : 'image/jpeg';
       content.push({
         type: 'image',
-        source: { type: 'base64', media_type: 'image/png', data: uPhotos[slot].split(',')[1] }
+        source: { type: 'base64', media_type, data: dataUrl.split(',')[1] }
       });
     }
 
