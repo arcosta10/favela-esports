@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "nick": "FV Luke",
+    "ativo": true
+  },
+  {
+    "id": 2,
+    "nick": "FV Blakim",
+    "ativo": true
+  },
+  {
+    "id": 3,
+    "nick": "FV Nerd",
+    "ativo": true
+  },
+  {
+    "id": 4,
+    "nick": "FV Gansin",
+    "ativo": true
+  },
+  {
+    "id": 5,
+    "nick": "FV Anjos",
+    "ativo": true
+  },
+  {
+    "id": 6,
+    "nick": "FV Black",
+    "ativo": true
+  },
+  {
+    "id": 7,
+    "nick": "FV Paco",
+    "ativo": true
+  },
+  {
+    "id": 8,
+    "nick": "FV Caju",
+    "ativo": true
+  }
+]
