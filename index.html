@@ -447,8 +447,6 @@ const ADMIN_EMAIL = 'admin@favela.gg';
 const ADMIN_PASS  = 'admin123';
 const PLAYER_PASS = 'favela123';
 
-// Chave Gemini (Google AI Studio — gratuito, 1500 req/dia)
-window._gk = 'AIzaSyBkFc7LM8J2Vv56AGB5kLFVJpMUrotJGOs';
 
 // ============================================================
 // GITHUB DATA STORAGE
@@ -2100,13 +2098,10 @@ let aiReading=false;
 function modalAddMatch(){
   sRows=[];uPhotos={foto1:null,foto2:null};sRowCounter=0;
   openModal('Registrar Partida',`
-  <!-- MODO IA -->
-  <div style="background:linear-gradient(135deg,rgba(184,134,11,0.1),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.25);padding:14px 16px;margin-bottom:16px">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px">
-      <i class="fas fa-magic"></i> Leitura Automática por IA
-    </div>
-    <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Suba os 2 prints do PUBG e a IA preenche tudo automaticamente.</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+  <!-- EVIDÊNCIAS -->
+  <div style="margin-bottom:16px">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px"><i class="fas fa-camera"></i> Evidências (opcional)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <label class="upload-zone" id="upload-foto1" style="cursor:pointer">
         <input type="file" accept="image/*" style="display:none" onchange="markPhoto('foto1',this)">
         <i class="fas fa-trophy"></i>
@@ -2118,17 +2113,6 @@ function modalAddMatch(){
         <p>Print Estatísticas<br><span style="color:var(--gold);font-size:10px">clique para selecionar</span></p>
       </label>
     </div>
-    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="lerPrints()">
-      <i class="fas fa-robot"></i> Ler Prints com IA
-    </button>
-    <div id="ai-status" style="margin-top:10px;font-size:12px;color:var(--gray);text-align:center;display:none"></div>
-  </div>
-
-  <!-- SEPARADOR -->
-  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-    <div style="flex:1;height:1px;background:var(--border)"></div>
-    <span style="font-size:10px;color:var(--gray);letter-spacing:0.1em">OU PREENCHA MANUALMENTE</span>
-    <div style="flex:1;height:1px;background:var(--border)"></div>
   </div>
 
   <!-- CAMPOS GERAIS -->
@@ -2151,106 +2135,6 @@ function modalAddMatch(){
   addSRow();
 }
 
-async function lerPrints(){
-  if(!uPhotos.foto1 && !uPhotos.foto2){
-    alert('Suba pelo menos um print primeiro!');
-    return;
-  }
-  const status = document.getElementById('ai-status');
-  status.style.display='block';
-  status.style.color='var(--gray)';
-  status.innerHTML='<span class="spinner"></span> Analisando prints com IA...';
-
-  try {
-    const prompt = `Analise estes prints do PUBG Mobile e extraia os dados de estatísticas.
-
-JOGADORES CADASTRADOS NO TIME: ${PLAYERS.map(p=>p.nick).join(', ')}
-
-Retorne APENAS um JSON válido neste formato exato, sem texto antes ou depois, sem markdown, sem backticks:
-{
-  "colocacao": 10,
-  "mapa": "Miramar",
-  "jogadores": [
-    {"nick": "FV Luke", "kills": 3, "dano": 456, "salvamentos": 0, "suportes": 2}
-  ]
-}
-
-Regras:
-- colocacao: número da posição final da equipe (ex: 3º lugar = 3)
-- mapa: detecte pelo cenário (Erangel=verde, Miramar=deserto, Rondo=neve/urbano)
-- nick: use o nick mais próximo da lista de jogadores cadastrados acima
-- dano: coluna "Dano" ou "Damage" (número inteiro)
-- kills: coluna "Abates" ou "Kills"
-- salvamentos: coluna "Resgatar" ou "Rescue"
-- suportes: coluna "Assistências" ou "Assists"
-- Se um campo não aparecer, use 0
-- Inclua TODOS os jogadores visíveis nos prints`;
-
-    const parts = [{ text: prompt }];
-    for(const slot of ['foto1','foto2']){
-      if(!uPhotos[slot]) continue;
-      const dataUrl = uPhotos[slot];
-      const mimeMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      parts.push({ inline_data: { mime_type: mimeType, data: dataUrl.split(',')[1] } });
-    }
-
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-    const body = JSON.stringify({ contents: [{ parts }] });
-
-    const resp = await fetch(url + '?key=' + window._gk, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body
-    });
-
-    const data = await resp.json();
-    console.log('[Gemini] status:', resp.status, JSON.stringify(data).slice(0,200));
-
-    if(data.error){
-      throw new Error('Erro ' + resp.status + ': ' + (data.error.message||JSON.stringify(data.error)));
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const clean = text.replace(/```json\n?/gi,'').replace(/```\n?/gi,'').trim();
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Resposta inválida. Tente novamente.');
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    if(!parsed.jogadores?.length) throw new Error('Nenhum jogador identificado nos prints.');
-
-    status.innerHTML = '<i class="fas fa-check-circle" style="color:var(--green)"></i> '
-      + parsed.jogadores.length + ' jogador(es) encontrado(s)! Verifique os dados preenchidos.';
-    status.style.color = 'var(--green)';
-
-    if(parsed.mapa){
-      const ms = document.getElementById('m-mapa');
-      if(ms && ['Erangel','Miramar','Rondo'].includes(parsed.mapa)) ms.value = parsed.mapa;
-    }
-
-    sRows.forEach(rid => document.getElementById('sr-'+rid)?.remove());
-    sRows = [];
-
-    parsed.jogadores.forEach(j => {
-      const player = matchPlayer(j.nick);
-      addSRow();
-      const rid = sRows[sRows.length-1];
-      if(player){ const sel=document.getElementById('sp-'+rid); if(sel) sel.value=player.id; }
-      const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||0;};
-      s('sd-'+rid, j.dano);
-      s('sk-'+rid, j.kills);
-      s('ss-'+rid, j.salvamentos);
-      s('su-'+rid, j.suportes);
-      s('sc-'+rid, parsed.colocacao||1);
-    });
-
-  } catch(e){
-    console.error('[lerPrints]', e);
-    status.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + e.message
-      + '<br><span style="font-size:10px;opacity:0.7">Verifique os dados ou use o preenchimento manual.</span>';
-    status.style.color = 'var(--red)';
-  }
-}
 let sRowCounter = 0;
 function addSRow(){
   const rid = ++sRowCounter;
