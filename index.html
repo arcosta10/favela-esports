@@ -228,7 +228,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
   .pf-root{width:100%!important;max-width:100%!important;padding:0!important;overflow-x:hidden!important}
   .pf-header-card{padding:16px!important}
   .pf-header-inner{flex-direction:column!important;align-items:center!important;text-align:center!important;gap:12px!important}
-  .pf-avatar{flex-shrink:0!important}
+  .pf-avatar{width:90px!important;height:90px!important;min-width:90px!important;min-height:90px!important;flex-shrink:0!important;overflow:hidden!important;border-radius:50%!important}
   .pf-info{min-width:0!important;width:100%!important}
   .pf-info-badges{justify-content:center!important}
   .pf-ranking-row{justify-content:center!important;margin-top:12px!important}
@@ -293,6 +293,34 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 
 /* VIEW ONLY BANNER */
 .view-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(184,134,11,0.08);border:1px solid rgba(255,215,0,0.2);font-size:12px;color:var(--gold);letter-spacing:0.05em;margin-bottom:18px}
+
+/* ── AVATAR — regras globais que nunca devem ser sobrescritas ── */
+/* O wrapper nunca usa display:flex quando contém imagem — o JS cuida disso */
+.pf-avatar{
+  width:90px!important;height:90px!important;
+  min-width:90px!important;min-height:90px!important;
+  border-radius:50%!important;overflow:hidden!important;
+  flex-shrink:0!important;
+}
+.pf-avatar img{
+  width:100%!important;height:100%!important;
+  object-fit:cover!important;object-position:center center!important;
+  display:block!important;
+  /* Garante que a imagem nunca herda flex-sizing */
+  flex:none!important;align-self:auto!important;
+}
+/* Fallback de iniciais dentro do pf-avatar */
+.pf-avatar span{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:900;color:var(--gold);line-height:1;
+}
+
+/* avatarHtml circles (tamanho variável, controlado por JS) */
+[data-av] img{
+  width:100%!important;height:100%!important;
+  object-fit:cover!important;object-position:center center!important;
+  display:block!important;flex:none!important;
+}
 
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%);transition:transform 0.25s;z-index:300}
@@ -951,13 +979,6 @@ window.addEventListener('load', async ()=>{
     const adminOnlyPages = ['calendar','reports'];
     if(!isAdmin() && adminOnlyPages.includes(savedPage)) savedPage = 'dashboard';
 
-    // Restaura o jogador visualizado (para page player-profile)
-    try{
-      const savedPid = localStorage.getItem('fv_viewing_player_id');
-      if(savedPid) window._viewingPlayerId = +savedPid;
-      else if(savedPage==='player-profile') savedPage='players'; // fallback se não tem ID
-    }catch(e){}
-
     // Abre o app na página correta
     openApp(savedPage);
 
@@ -999,8 +1020,6 @@ document.addEventListener('keydown',e=>{
 // ============================================================
 function goto(page,el){
   if(!isAdmin()&&['calendar','reports'].includes(page))return;
-  // Ao ir para Meu Perfil, garante que está vendo o próprio perfil
-  if(page==='profile') window._viewingPlayerId = CURRENT_USER?.pid || null;
   // ── Persiste página atual para restaurar no F5 ──
   try{ localStorage.setItem('fv_current_page', page); }catch(e){}
   document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
@@ -1010,7 +1029,7 @@ function goto(page,el){
 }
 
 async function renderPage(page, skipSync=false){
-  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios',profile:'Meu Perfil','player-profile':'Perfil do Jogador'};
+  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios',profile:'Meu Perfil'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
@@ -1020,7 +1039,7 @@ async function renderPage(page, skipSync=false){
     document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>`;
     await loadAll();
   }
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile,'player-profile':()=>pgPlayerProfile(window._viewingPlayerId)};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
   document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
   setTimeout(()=>initCharts(page),80);
 }
@@ -1028,8 +1047,8 @@ async function renderPage(page, skipSync=false){
 async function reloadData(){
   await loadAll(true); // força busca nova
   const page = document.getElementById('tb-title').textContent.toLowerCase();
-  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports','meu perfil':'profile','perfil do jogador':'player-profile'};
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile,'player-profile':()=>pgPlayerProfile(window._viewingPlayerId)};
+  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports','meu perfil':'profile'};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
   const key = map[page]||'dashboard';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
@@ -1338,7 +1357,7 @@ function pgPlayers(){
         <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Perfil</button>
         <button class="btn btn-danger" onclick="delPlayer(${p.id})"><i class="fas fa-trash"></i></button>
         `:`
-        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="viewPlayerProfile(${p.id})"><i class="fas fa-user"></i> Ver Perfil</button>
+        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="goto('profile',null)"><i class="fas fa-user"></i> Ver Perfil</button>
         `}
       </div>
     </div>`;
@@ -1521,7 +1540,7 @@ function initCharts(page){
     const dCtx=document.getElementById('dmgChart');
     if(dCtx&&pw.length)chartInstances.dmg=new Chart(dCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio',data:pw.map(p=>{const st=pStats(p.id);return+(st.dano/st.n).toFixed(0)}),backgroundColor:pw.map(p=>pStats(p.id).n>=40?'rgba(184,134,11,0.75)':'rgba(239,68,68,0.5)'),borderColor:pw.map(p=>pStats(p.id).n>=40?'#FFD700':'#EF4444'),borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:11}}}}}});
   }
-  if(page==='profile'||page==='player-profile')initProfileCharts(window._viewingPlayerId||CURRENT_USER?.pid);
+  if(page==='profile')initProfileCharts();
   if(page==='reports'&&MATCHES.length>0){
     const mfilt=document.getElementById('rp-ms')?.value||'';
     const pfilt=document.getElementById('rp-ps')?.value||'';
@@ -1547,10 +1566,23 @@ function getAvatarSrc(player){
 function avatarHtml(player, size=42, fontSize=14){
   const src = getAvatarSrc(player);
   const initials = (player.nick||'??').replace('FV ','').slice(0,2).toUpperCase();
-  const inner = src
-    ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family:\'Barlow Condensed\',sans-serif;font-size:${fontSize}px;font-weight:900;color:var(--gold)\">${initials}</span>'">`
-    : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:${fontSize}px;font-weight:900;color:var(--gold)">${initials}</span>`;
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">${inner}</div>`;
+  const base = 'width:'+size+'px;height:'+size+'px;min-width:'+size+'px;min-height:'+size+'px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);';
+  if(src){
+    const errHtml = '<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center\\'><span style=\\'font-family:Barlow Condensed,sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold)\\'>'+initials+'</span></div>';
+    return '<div style="'+base+'"><img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.parentElement.innerHTML=\''+errHtml+'\'"></div>';
+  }
+  return '<div style="'+base+'display:flex;align-items:center;justify-content:center;"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold);line-height:1">'+initials+'</span></div>';
+}
+
+// Avatar grande para cabeçalho de perfil (90px, sem display:flex quando tem imagem)
+function profileAvatarHtml(player){
+  const src = getAvatarSrc(player);
+  const initials = (player.nick||'??').replace('FV ','').slice(0,2).toUpperCase();
+  const wrapStyle = 'width:90px;height:90px;min-width:90px;min-height:90px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);';
+  if(src){
+    return '<div class="pf-avatar" style="'+wrapStyle+'"><img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.parentElement.style.cssText+=\'display:flex;align-items:center;justify-content:center\';this.remove();this.parentElement.innerHTML=\'<span style=\\\"font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\\\">'+initials+'</span>\'"></div>';
+  }
+  return '<div class="pf-avatar" style="'+wrapStyle+'display:flex;align-items:center;justify-content:center;"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:34px;font-weight:900;color:var(--gold);line-height:1">'+initials+'</span></div>';
 }
 
 // ============================================================
@@ -1613,16 +1645,11 @@ function pgProfile(){
 
   <!-- ── CABEÇALHO ── -->
   ${(()=>{
-    const avatarSrc=getAvatarSrc(player);
     const statusLabel={'ativo':'Ativo','reserva':'Reserva','inativo':'Inativo'}[player.player_status||'ativo']||'Ativo';
     const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
     return`<div class="pf-header-card" style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;box-sizing:border-box">
       <div class="pf-header-inner" style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
-        <div class="pf-avatar" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          ${avatarSrc
-          ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family: Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>'">`
-          : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold)">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
-        </div>
+        ${profileAvatarHtml(player)}
         <div class="pf-info" style="flex:1;min-width:180px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
           ${player.full_name?`<div style="font-size:13px;color:var(--gray);margin-top:2px">${player.full_name}</div>`:''}
@@ -1763,257 +1790,19 @@ function pgProfile(){
 </div>`;
 }
 
-// ============================================================
-// PERFIL PÚBLICO DO JOGADOR (visualização de outro jogador)
-// ============================================================
-
-// Navega para o perfil público de um jogador pelo ID
-function viewPlayerProfile(playerId){
-  window._viewingPlayerId = +playerId;
-  // Se é o próprio perfil do usuário logado, abre "Meu Perfil"
-  if(!isAdmin() && CURRENT_USER?.pid && +playerId === +CURRENT_USER.pid){
-    goto('profile', null);
-    return;
-  }
-  try{
-    localStorage.setItem('fv_current_page','player-profile');
-    localStorage.setItem('fv_viewing_player_id', String(playerId));
-  }catch(e){}
-  // Atualiza nav sidebar (nenhum item ativo ao ver perfil de outro)
-  document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
-  document.getElementById('sidebar').classList.remove('open');
-  renderPage('player-profile');
-}
-
-// Página de perfil público — dados do jogador pelo ID, sem dados internos
-function pgPlayerProfile(playerId){
-  if(!playerId) return`<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Jogador não especificado</h3><p>Selecione um jogador na lista.</p></div>`;
-
-  const player = PLAYERS.find(p=>+p.id===+playerId);
-  if(!player) return`<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Jogador não encontrado</h3><p>Este jogador não existe ou foi removido.</p></div>`;
-
-  const pid = +playerId;
-  const stAll = pStats(pid);
-  const rkAll = calcRanking(MATCHES);
-  const rkW   = calcRanking(getWeekFilter());
-  const rkM   = calcRanking(getMonthFilter());
-  const posG  = rkAll.findIndex(p=>+p.id===pid)+1||'-';
-  const posS  = rkW.findIndex(p=>+p.id===pid)+1||'-';
-  const posM  = rkM.findIndex(p=>+p.id===pid)+1||'-';
-  const rkP   = rkAll.find(p=>+p.id===pid);
-  const sc    = rkP?.score??0;
-  const med   = rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
-  const contrib= rkP?.contrib??{dano:0,salv:0,kills:0,sup:0};
-  const ss    = rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
-  const apt   = stAll.n>=40;
-  const W     = SCORE_WEIGHTS;
-  const scoreMax = W.dano+W.salvamentos+W.kills+W.suportes;
-  const scorePct = sc?(sc/scoreMax*100).toFixed(1):0;
-
-  const MAP_COLORS={Erangel:'#00D084',Miramar:'#FF6B35',Rondo:'#FFD700',Sanhok:'#00B8FF',Vikendi:'#8A5CFF',Livik:'#FF4D94',Taego:'#FFFFFF'};
-  const mapas = [...new Set(MATCHES.map(m=>m.mapa).filter(Boolean))];
-  const mapStats = mapas.map(mapa=>{
-    const ms = MATCHES.filter(m=>m.mapa===mapa);
-    const st = pStats(pid, ms);
-    return {mapa, n:st.n, dano:st.n?+(st.dano/st.n).toFixed(0):0, kills:st.n?+(st.kills/st.n).toFixed(2):0, salv:st.n?+(st.salv/st.n).toFixed(2):0, sup:st.n?+(st.sup/st.n).toFixed(2):0};
-  }).filter(m=>m.n>0).sort((a,b)=>b.n-a.n);
-  const bestMap = mapStats.reduce((best,m)=>{
-    const s = m.dano*0.6+m.kills*0.25+m.salv*0.1+m.sup*0.05;
-    const bs = best?(best.dano*0.6+best.kills*0.25+best.salv*0.1+best.sup*0.05):0;
-    return s>bs?m:best;
-  }, null);
-
-  const conquistas=[
-    {icon:'🏆',label:'MVP da Semana',desc:'Maior score na semana',earned:posS===1},
-    {icon:'👑',label:'MVP do Mês',desc:'Maior score no mês',earned:posM===1},
-    {icon:'🥉',label:'Top 3 Geral',desc:'Top 3 no ranking geral',earned:typeof posG==='number'&&posG<=3},
-    {icon:'💥',label:'Maior Dano',desc:'Maior dano médio geral',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.medias.dano-a.medias.dano)[0]?.id===pid},
-    {icon:'🔫',label:'Maior Kill Game',desc:'Top kills no ranking',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.kills-a.st.kills)[0]?.id===pid},
-    {icon:'🚑',label:'Maior Salvamentos',desc:'Top salvamentos geral',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.salv-a.st.salv)[0]?.id===pid},
-  ];
-
-  return`
-<div class="pf-root" style="max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box;overflow-x:hidden">
-
-  <!-- Banner de visualização pública -->
-  <div class="alert alert-info" style="margin-bottom:16px">
-    <i class="fas fa-eye" style="margin-right:6px"></i>
-    Perfil público de <b>${player.nick}</b>
-    <button class="btn btn-ghost" style="margin-left:12px;font-size:10px;padding:3px 10px" onclick="goto('players',null)"><i class="fas fa-arrow-left"></i> Voltar</button>
-  </div>
-
-  <!-- ── CABEÇALHO ── -->
-  ${(()=>{
-    const avatarSrc=getAvatarSrc(player);
-    const statusLabel={'ativo':'Ativo','reserva':'Reserva','inativo':'Inativo'}[player.player_status||'ativo']||'Ativo';
-    const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
-    return`<div class="pf-header-card" style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;box-sizing:border-box">
-      <div class="pf-header-inner" style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
-        <div class="pf-avatar" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          ${avatarSrc
-          ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family: Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>'">`
-          : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold)">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
-        </div>
-        <div class="pf-info" style="flex:1;min-width:180px">
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
-          ${player.full_name?`<div style="font-size:13px;color:var(--gray);margin-top:2px">${player.full_name}</div>`:''}
-          <div class="pf-info-badges" style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
-            ${player.role_in_team?`<span style="background:rgba(255,215,0,0.1);color:var(--gold2);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.2);letter-spacing:0.1em;text-transform:uppercase">${player.role_in_team}</span>`:''}
-            <span style="background:${statusColor}18;color:${statusColor};padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid ${statusColor}44;letter-spacing:0.1em;text-transform:uppercase">${statusLabel}</span>
-            <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.25)">#${posG} Ranking</span>
-            <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:10px">${apt?'✓ APTO':'⚠ NÃO APTO'}</span>
-          </div>
-          ${player.joined_at?`<div style="font-size:11px;color:var(--gray);margin-top:6px"><i class="fas fa-calendar-alt" style="margin-right:4px;color:var(--dim)"></i>No time desde ${new Date(player.joined_at+'T00:00:00').toLocaleDateString('pt-BR')}</div>`:''}
-          ${player.bio?`<div style="font-size:12px;color:var(--gray);margin-top:6px;font-style:italic">"${player.bio}"</div>`:''}
-          ${player.social_links?`<div style="font-size:11px;color:var(--gold2);margin-top:4px"><i class="fas fa-share-alt" style="margin-right:4px"></i>${player.social_links}</div>`:''}
-          <div style="margin-top:8px;font-size:13px;color:var(--gray)">
-            <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
-            <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
-            <span style="color:${ss.color}">${ss.label}</span>
-            <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
-            <span>${stAll.n} partida(s) de 40</span>
-          </div>
-        </div>
-      <div class="pf-ranking-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
-        ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
-        <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
-          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
-          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${r.color}">#${r.pos}</div>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  })()}
-
-  <!-- ── ESTATÍSTICAS GERAIS ── -->
-  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Estatísticas Gerais</div></div>
-  <div class="pf-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px;width:100%;box-sizing:border-box">
-    ${[
-      {label:'Partidas',val:stAll.n,icon:'fa-crosshairs',color:'var(--gold)'},
-      {label:'Dano Total',val:fmtNum(stAll.dano),icon:'fa-fire',color:'#FF6B35'},
-      {label:'Kills Totais',val:stAll.kills,icon:'fa-skull-crossbones',color:'#FFD700'},
-      {label:'Salvamentos',val:stAll.salv,icon:'fa-medkit',color:'#00D084'},
-      {label:'Suportes',val:stAll.sup,icon:'fa-hands-helping',color:'#00B8FF'},
-    ].map(s=>`
-    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
-      <i class="fas ${s.icon}" style="color:${s.color};font-size:18px;margin-bottom:8px;display:block"></i>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff">${s.val}</div>
-      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px">${s.label}</div>
-    </div>`).join('')}
-    ${[
-      {label:'Dano/PT',val:stAll.n?fmtNum(med.dano):'—',color:'#FF6B35'},
-      {label:'Kills/PT',val:stAll.n?med.kills.toFixed(2):'—',color:'#FFD700'},
-      {label:'Salv/PT',val:stAll.n?med.salv.toFixed(2):'—',color:'#00D084'},
-      {label:'Sup/PT',val:stAll.n?med.sup.toFixed(2):'—',color:'#00B8FF'},
-    ].map(s=>`
-    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
-      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:6px">${s.label}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${s.color}">${s.val}</div>
-      <div style="font-size:9px;color:var(--dim);margin-top:3px">por partida</div>
-    </div>`).join('')}
-  </div>
-
-  <!-- ── SCORE + MAPA ── -->
-  <div class="pf-score-map-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;width:100%;box-sizing:border-box">
-    <div>
-      <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Score Atual</div></div>
-      <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:20px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div>
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:${ss.color};line-height:1">${sc}<span style="font-size:18px;color:var(--gray)"> / ${scoreMax}</span></div>
-            <div style="font-size:11px;color:var(--gray);margin-top:4px">${scorePct}% do máximo teórico</div>
-          </div>
-          <span style="padding:5px 12px;background:${ss.bg};color:${ss.color};border:1px solid ${ss.color}44;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.08em">${ss.label}</span>
-        </div>
-        <div style="background:rgba(0,0,0,0.4);height:8px;border-radius:4px;margin-bottom:16px">
-          <div style="width:${scorePct}%;height:100%;background:linear-gradient(90deg,${ss.color}88,${ss.color});border-radius:4px;transition:width 0.6s"></div>
-        </div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:8px">Composição</div>
-        <div class="pf-composition-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${[
-            {label:'Dano',val:contrib.dano,max:W.dano,color:'#FF6B35'},
-            {label:'Salvamentos',val:contrib.salv,max:W.salvamentos,color:'#00D084'},
-            {label:'Kills',val:contrib.kills,max:W.kills,color:'#FFD700'},
-            {label:'Suportes',val:contrib.sup,max:W.suportes,color:'#00B8FF'},
-          ].map(c=>`
-          <div style="background:rgba(255,255,255,0.03);padding:8px;border-left:2px solid ${c.color}">
-            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">${c.label}</div>
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:${c.color};margin:3px 0">${c.val.toFixed(2)}<span style="font-size:11px;color:var(--gray)"> / ${c.max.toFixed(2)}</span></div>
-            <div style="background:rgba(0,0,0,0.4);height:4px;border-radius:2px">
-              <div style="width:${c.max>0?(c.val/c.max*100).toFixed(0):0}%;height:100%;background:${c.color};border-radius:2px"></div>
-            </div>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Por Mapa ${bestMap?`<span style="font-size:12px;color:var(--gold);font-weight:400">🏆 Melhor: ${bestMap.mapa}</span>`:''}</div></div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${mapStats.length===0?`<div style="color:var(--gray);padding:20px;font-size:13px">Sem dados por mapa.</div>`:
-        mapStats.map(m=>`
-        <div style="background:#0d0d0d;border:1px solid ${m.mapa===bestMap?.mapa?'rgba(255,215,0,0.3)':'rgba(255,255,255,0.07)'};padding:12px 14px;display:flex;align-items:center;gap:12px">
-          <div>
-            <span class="badge badge-map map-${m.mapa}" style="font-size:10px">${m.mapa}</span>
-            <div style="font-size:10px;color:var(--gray);margin-top:3px">${m.n} pt(s)</div>
-          </div>
-          <div class="pf-map-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1">
-            ${[{l:'Dano',v:fmtNum(m.dano),c:'#FF6B35'},{l:'Kills',v:m.kills.toFixed(1),c:'#FFD700'},{l:'Salv',v:m.salv.toFixed(1),c:'#00D084'},{l:'Sup',v:m.sup.toFixed(1),c:'#00B8FF'}].map(x=>`
-            <div style="background:#111;padding:6px;text-align:center;border-radius:2px">
-              <div style="font-size:8px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">${x.l}</div>
-              <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${x.c}">${x.v}</div>
-            </div>`).join('')}
-          </div>
-        </div>`).join('')}
-      </div>
-    </div>
-  </div>
-
-  <!-- ── GRÁFICOS DE EVOLUÇÃO ── -->
-  <div class="sec-hdr">
-    <div class="sec-title"><div class="sec-title-line"></div>Evolução</div>
-    <div class="pf-filter-row" style="display:flex;gap:6px">
-      ${['7d','30d','all'].map(f=>`<button id="pf-${f}" class="btn btn-ghost" style="font-size:10px;padding:5px 10px;${_profileFilter===f?'border-color:var(--gold);color:var(--gold)':''}" onclick="setProfileFilter('${f}')">${f==='7d'?'7 Dias':f==='30d'?'30 Dias':'Tudo'}</button>`).join('')}
-    </div>
-  </div>
-  <div class="pf-charts-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:20px;width:100%;box-sizing:border-box">
-    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
-      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Dano por Partida</div>
-      <div style="position:relative;height:120px"><canvas id="pfDmgChart"></canvas></div>
-    </div>
-    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
-      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Kills por Partida</div>
-      <div style="position:relative;height:120px"><canvas id="pfKillChart"></canvas></div>
-    </div>
-    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
-      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Score por Partida</div>
-      <div style="position:relative;height:120px"><canvas id="pfScoreChart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- ── CONQUISTAS ── -->
-  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Conquistas</div></div>
-  <div class="pf-achievements-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;width:100%;box-sizing:border-box">
-    ${conquistas.map(c=>`
-    <div style="background:${c.earned?'rgba(255,215,0,0.08)':'#0d0d0d'};border:1px solid ${c.earned?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.06)'};padding:14px;text-align:center;opacity:${c.earned?1:0.45}">
-      <div style="font-size:28px;margin-bottom:8px">${c.icon}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:${c.earned?'var(--gold)':'var(--gray)'};letter-spacing:0.05em">${c.label}</div>
-      <div style="font-size:10px;color:var(--dim);margin-top:4px">${c.desc}</div>
-      ${c.earned?`<div style="font-size:9px;color:var(--gold);margin-top:6px;text-transform:uppercase;letter-spacing:0.1em">✓ Conquistado</div>`:``}
-    </div>`).join('')}
-  </div>
-
-</div>`;
+function setProfileFilter(f){
   _profileFilter=f;
   // Atualiza visual dos botões
   ['7d','30d','all'].forEach(x=>{
     const btn=document.getElementById('pf-'+x);
     if(btn){btn.style.borderColor=x===f?'var(--gold)':'';btn.style.color=x===f?'var(--gold)':'';}
   });
-  initProfileCharts(window._viewingPlayerId||CURRENT_USER?.pid);
+  initProfileCharts();
 }
 
-function initProfileCharts(overridePid){
-  const pid = overridePid || (CURRENT_USER?.pid);
-  if(!pid) return;
+function initProfileCharts(){
+  if(!CURRENT_USER||isAdmin())return;
+  const pid=CURRENT_USER.pid;
 
   // Filtra partidas pelo período selecionado
   const now=new Date();
@@ -2673,8 +2462,8 @@ function modalEditPlayer(id,nick){
   openModal(`Editar Perfil — ${nick}`,`
   <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;margin-bottom:12px;align-items:start">
     <div>
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:2px solid rgba(255,215,0,0.35);overflow:hidden;margin-bottom:8px;display:flex;align-items:center;justify-content:center" id="ep-avatar-preview">
-        ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block">`:
+      <div style="width:80px;height:80px;min-width:80px;min-height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:2px solid rgba(255,215,0,0.35);overflow:hidden;margin-bottom:8px;${avatarSrc?'':'display:flex;align-items:center;justify-content:center'}" id="ep-avatar-preview">
+        ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">`:
         `<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
       </div>
       <input type="file" id="ep-avatar-file" accept="image/jpg,image/jpeg,image/png,image/webp" style="display:none" onchange="previewAvatar(this)">
@@ -2704,16 +2493,24 @@ function previewAvatar(input){
     const src=ev.target.result;
     window._pendingAvatar=src;
     const prev=document.getElementById('ep-avatar-preview');
-    if(prev) prev.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover">`;
+    if(prev){
+      // Remove display:flex so image fills cleanly
+      prev.style.display='block';
+      prev.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">`;
+    }
   };
   reader.readAsDataURL(file);
 }
 
 function removeAvatar(){
-  window._pendingAvatar='__remove__'; // foto será deletada do GitHub ao salvar
+  window._pendingAvatar='__remove__';
   const prev=document.getElementById('ep-avatar-preview');
   if(prev){
     const nick=document.getElementById('ep-nick')?.value||'';
+    // Restore flex for initials display
+    prev.style.display='flex';
+    prev.style.alignItems='center';
+    prev.style.justifyContent='center';
     prev.innerHTML=`<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`;
   }
 }
