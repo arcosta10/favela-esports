@@ -861,7 +861,10 @@ async function doLogin(){
   }
 }
 
-function openApp(){
+function openApp(savedPage){
+  // ── Salva sessão no localStorage (persiste ao F5) ──
+  try{ localStorage.setItem('fv_session', JSON.stringify(CURRENT_USER)); }catch(e){}
+
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
   // Sidebar admin section
@@ -873,11 +876,14 @@ function openApp(){
   document.getElementById('sb-nm').textContent=CURRENT_USER.nick;
   document.getElementById('sb-rl').textContent=isAdmin()?'Gerente Geral':'Jogador';
   if(!isAdmin()) document.getElementById('sb-rl').style.color='var(--accent)';
-  renderPage('dashboard');
+  // ── Restaura página anterior (F5) ou abre dashboard ──
+  renderPage(savedPage||'dashboard');
 }
 
 async function doLogout(){
   if(!confirm('Sair?'))return;
+  // ── Limpa sessão persistida ──
+  try{ localStorage.removeItem('fv_session'); localStorage.removeItem('fv_current_page'); }catch(e){}
   CURRENT_USER=null; PLAYERS=[]; MATCHES=[]; EVENTS=[];
   document.getElementById('appShell').classList.add('hidden');
   document.getElementById('loginScreen').classList.remove('hidden');
@@ -885,19 +891,69 @@ async function doLogout(){
   document.getElementById('lPass').value='';
   document.getElementById('lPassP').value='';
   setType('admin');
-  // Pré-carrega jogadores para o select
   try{ await loadAll(true); }catch(e){}
 }
 
-// Pré-carrega jogadores ao abrir a página (para o select de login)
+// ── Inicialização: restaura sessão ou mostra login ──
 window.addEventListener('load', async ()=>{
+  // Mostra tela de carregamento enquanto verifica sessão
+  const loginScreen = document.getElementById('loginScreen');
+  const appShell    = document.getElementById('appShell');
+
+  // 1. Carrega dados do cache local imediatamente (resposta instantânea)
   try{
-    const db = await ghRead();
-    if(db?.jogadores?.length>0) PLAYERS=db.jogadores;
-    else { const p=localStorage.getItem('fv_players'); if(p) PLAYERS=JSON.parse(p); }
-  }catch(e){
-    try{ const p=localStorage.getItem('fv_players'); if(p) PLAYERS=JSON.parse(p); }catch(e2){}
-    console.warn('Pré-carregamento falhou:', e.message);
+    const p=localStorage.getItem('fv_players');
+    const m=localStorage.getItem('fv_matches');
+    const ev=localStorage.getItem('fv_events');
+    if(p) PLAYERS=JSON.parse(p);
+    if(m) MATCHES=JSON.parse(m);
+    if(ev) EVENTS=JSON.parse(ev);
+  }catch(e){}
+
+  // 2. Verifica se existe sessão salva (F5 / reload)
+  let savedSession = null;
+  try{ const s=localStorage.getItem('fv_session'); if(s) savedSession=JSON.parse(s); }catch(e){}
+
+  if(savedSession && savedSession.role){
+    // ── Sessão encontrada — restaura sem pedir login ──
+    CURRENT_USER = savedSession;
+    console.log('[init] Sessão restaurada:', savedSession.role, savedSession.nick);
+
+    // Recupera a última página visitada
+    let savedPage = 'dashboard';
+    try{ savedPage = localStorage.getItem('fv_current_page')||'dashboard'; }catch(e){}
+
+    // Valida que a página é permitida para o role atual
+    const adminOnlyPages = ['calendar','reports'];
+    if(!isAdmin() && adminOnlyPages.includes(savedPage)) savedPage = 'dashboard';
+
+    // Abre o app na página correta
+    openApp(savedPage);
+
+    // Atualiza dados do GitHub em background (sem bloquear a UI)
+    loadAll(true).then(()=>{
+      // Re-renderiza a página atual com dados frescos
+      const current = (() => { try{ return localStorage.getItem('fv_current_page')||'dashboard'; }catch(e){ return 'dashboard'; } })();
+      renderPage(current, true);
+    }).catch(e=>{ console.warn('[init] Sync em background falhou:', e.message); });
+
+  } else {
+    // ── Sem sessão — carrega jogadores para o select de login ──
+    try{
+      const db = await Promise.race([
+        ghRead(),
+        new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))
+      ]);
+      if(db?.jogadores?.length>0){
+        PLAYERS=db.jogadores;
+        localStorage.setItem('fv_players',JSON.stringify(PLAYERS));
+      }
+    }catch(e){
+      console.warn('[init] Pré-carregamento falhou:', e.message);
+    }
+    // Garante que a tela de login está visível
+    loginScreen.classList.remove('hidden');
+    appShell.classList.add('hidden');
   }
 });
 
@@ -912,6 +968,8 @@ document.addEventListener('keydown',e=>{
 // ============================================================
 function goto(page,el){
   if(!isAdmin()&&['calendar','reports'].includes(page))return;
+  // ── Persiste página atual para restaurar no F5 ──
+  try{ localStorage.setItem('fv_current_page', page); }catch(e){}
   document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
   if(el)el.classList.add('active');
   document.getElementById('sidebar').classList.remove('open');
