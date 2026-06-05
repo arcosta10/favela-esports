@@ -47,7 +47,14 @@
       "nick": "FV Anjos",
       "ativo": true,
       "criado_em": "2026-06-04T05:36:10.508502+00:00",
-      "avatar_url": ""
+      "avatar_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/avatars/5.jpg?v=1780656647393",
+      "full_name": "",
+      "role_in_team": "",
+      "joined_at": "",
+      "player_status": "ativo",
+      "bio": "",
+      "social_links": "",
+      "admin_notes": ""
     },
     {
       "id": 6,
@@ -402,5 +409,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780656105011
+  "_nextId": 1780656267107
 }
