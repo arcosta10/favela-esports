@@ -26,7 +26,14 @@
       "nick": "FV Gansin",
       "ativo": true,
       "criado_em": "2026-06-04T05:36:10.508502+00:00",
-      "avatar_url": ""
+      "avatar_url": "",
+      "full_name": "Gansooo",
+      "role_in_team": "IGL",
+      "joined_at": "",
+      "player_status": "ativo",
+      "bio": "hahaha",
+      "social_links": "Bahaha",
+      "admin_notes": ""
     },
     {
       "id": 5,
@@ -388,5 +395,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780655059680
+  "_nextId": 1780655093696
 }
