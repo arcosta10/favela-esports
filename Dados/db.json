@@ -86,12 +86,31 @@
   ],
   "partidas": [
     {
+      "id": 1780703203279,
+      "data": "2026-06-05",
+      "scrim": null,
+      "mapa": "Erangel",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780703203279_foto1.jpg?v=1780703203284",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780703203279_foto2.jpg?v=1780703204946",
+      "estatisticas": [
+        {
+          "jogador_id": 1,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 1,
+          "partida_id": 1780703203279
+        }
+      ]
+    },
+    {
       "id": 1780616558246,
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Erangel",
-      "foto1_url": "local:1780616558246",
-      "foto2_url": "local:1780616558246",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 1,
@@ -136,8 +155,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Rondo",
-      "foto1_url": "local:1780616540210",
-      "foto2_url": "local:1780616540210",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 1,
@@ -182,8 +201,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Miramar",
-      "foto1_url": "local:1780616509752",
-      "foto2_url": "local:1780616509752",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 8,
@@ -228,8 +247,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Erangel",
-      "foto1_url": "local:1780616099294",
-      "foto2_url": "local:1780616099294",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 4,
@@ -274,8 +293,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Erangel",
-      "foto1_url": "local:1780616034229",
-      "foto2_url": "local:1780616034229",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 8,
@@ -320,8 +339,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Miramar",
-      "foto1_url": "local:1780615985034",
-      "foto2_url": "local:1780615985034",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 1780614933459,
@@ -366,8 +385,8 @@
       "data": "2026-06-04",
       "scrim": null,
       "mapa": "Erangel",
-      "foto1_url": "local:1780615884592",
-      "foto2_url": "local:1780615884592",
+      "foto1_url": null,
+      "foto2_url": null,
       "estatisticas": [
         {
           "jogador_id": 8,
@@ -409,5 +428,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780656267107
+  "_nextId": 1780703184771
 }
