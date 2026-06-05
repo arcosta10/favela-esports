@@ -1515,9 +1515,9 @@ function avatarHtml(player, size=42, fontSize=14){
   const src = getAvatarSrc(player);
   const initials = (player.nick||'??').replace('FV ','').slice(0,2).toUpperCase();
   const inner = src
-    ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=\"font-family:\'Barlow Condensed\',sans-serif;font-size:${fontSize}px;font-weight:900;color:var(--gold)\">${initials}</span>'">`
+    ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family:\'Barlow Condensed\',sans-serif;font-size:${fontSize}px;font-weight:900;color:var(--gold)\">${initials}</span>'">`
     : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:${fontSize}px;font-weight:900;color:var(--gold)">${initials}</span>`;
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${inner}</div>`;
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">${inner}</div>`;
 }
 
 // ============================================================
@@ -1585,9 +1585,9 @@ function pgProfile(){
     const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
     return`<div style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px">
       <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
-        <div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+        <div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
           ${avatarSrc
-          ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=\"font-family: Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>'">`
+          ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family: Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>'">`
           : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold)">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
         </div>
         <div style="flex:1;min-width:200px">
@@ -2402,8 +2402,8 @@ function modalEditPlayer(id,nick){
   openModal(`Editar Perfil — ${nick}`,`
   <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;margin-bottom:12px;align-items:start">
     <div>
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:2px solid rgba(255,215,0,0.35);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px" id="ep-avatar-preview">
-        ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover">`:
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:2px solid rgba(255,215,0,0.35);overflow:hidden;margin-bottom:8px;display:flex;align-items:center;justify-content:center" id="ep-avatar-preview">
+        ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block">`:
         `<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
       </div>
       <input type="file" id="ep-avatar-file" accept="image/jpg,image/jpeg,image/png,image/webp" style="display:none" onchange="previewAvatar(this)">
