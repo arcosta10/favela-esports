@@ -669,13 +669,18 @@ async function persistAll(){
   saveCache();
   try {
     if(!_ghSha){ try{ await ghRead(); }catch(e){} }
-    // Remove base64 das fotos antes de salvar no GitHub (evita quota exceeded)
+    // Remove base64 das fotos de partida antes de salvar no GitHub
     const matchesSafe = MATCHES.map(m => ({
       ...m,
       foto1_url: m.foto1_url?.startsWith('data:') ? null : (m.foto1_url || null),
       foto2_url: m.foto2_url?.startsWith('data:') ? null : (m.foto2_url || null),
     }));
-    await ghWrite({ jogadores: PLAYERS, partidas: matchesSafe, eventos: EVENTS, _nextId: _ghNextId });
+    // Remove avatar_url base64 dos jogadores — avatares ficam só no localStorage
+    const playersSafe = PLAYERS.map(p => ({
+      ...p,
+      avatar_url: (p.avatar_url && p.avatar_url.startsWith('data:')) ? '' : (p.avatar_url || ''),
+    }));
+    await ghWrite({ jogadores: playersSafe, partidas: matchesSafe, eventos: EVENTS, _nextId: _ghNextId });
     setSyncStatus('ok');
   } catch(e){
     console.warn('GitHub write falhou (dados no localStorage):', e.message);
@@ -2204,6 +2209,7 @@ function savePlayer(){
   const nick=document.getElementById('p-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
   const tempId = Date.now();
+  const newAvatar = window._pendingAvatar||'';
   PLAYERS.push({
     id:tempId, nick, ativo:true,
     full_name: document.getElementById('p-fullname')?.value.trim()||'',
@@ -2213,8 +2219,12 @@ function savePlayer(){
     bio: document.getElementById('p-bio')?.value.trim()||'',
     social_links: document.getElementById('p-social')?.value.trim()||'',
     admin_notes: document.getElementById('p-notes')?.value.trim()||'',
-    avatar_url: window._pendingAvatar||''
+    avatar_url: ''  // avatar fica só no localStorage
   });
+  // Salva avatar no localStorage separado (não vai para o db.json do GitHub)
+  if(newAvatar){
+    try{ localStorage.setItem('fv_avatar_'+tempId, newAvatar); }catch(le){ console.warn('avatar localStorage:', le); }
+  }
   window._pendingAvatar=null;
   saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
@@ -2225,7 +2235,7 @@ function modalEditPlayer(id,nick){
   window._pendingAvatar=null;
   const roleOpts=['','IGL','Fragger','Support','Sniper','Coach','Manager','Player'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
   const statusOpts=['ativo','reserva','inativo'].map(s=>`<option value="${s}" ${(p.player_status||'ativo')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
-  const avatarSrc=p.avatar_url||'';
+  const avatarSrc=(()=>{try{return localStorage.getItem('fv_avatar_'+id)||p.avatar_url||'';}catch(e){return p.avatar_url||'';}})();
   openModal(`Editar Perfil — ${nick}`,`
   <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;margin-bottom:12px;align-items:start">
     <div>
@@ -2312,7 +2322,8 @@ function updPlayer(id){
     PLAYERS = PLAYERS.map(p=>{
       if(+p.id!==+id) return p;
       const updated = { ...p, nick, full_name:fullName, role_in_team:role, joined_at:joined, player_status:status, bio, social_links:social, admin_notes:notes };
-      if(avatarUpdate!==undefined) updated.avatar_url=avatarUpdate;
+      // avatar_url no objeto fica sempre vazio (base64 fica só no localStorage)
+      if(avatarUpdate!==undefined) updated.avatar_url = '';
       return updated;
     });
 
