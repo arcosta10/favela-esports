@@ -86,6 +86,52 @@
   ],
   "partidas": [
     {
+      "id": 1780703852190,
+      "data": "2026-06-05",
+      "scrim": null,
+      "mapa": "Miramar",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780703852190_foto1.jpg?v=1780703852193",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780703852190_foto2.jpg?v=1780703853841",
+      "estatisticas": [
+        {
+          "jogador_id": 1,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780703852190
+        },
+        {
+          "jogador_id": 1780614933459,
+          "dano": 52,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 1,
+          "colocacao": 12,
+          "partida_id": 1780703852190
+        },
+        {
+          "jogador_id": 6,
+          "dano": 285,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780703852190
+        },
+        {
+          "jogador_id": 8,
+          "dano": 107,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780703852190
+        }
+      ]
+    },
+    {
       "id": 1780703686235,
       "data": "2026-06-05",
       "scrim": null,
