@@ -2210,15 +2210,12 @@ Regras:
     );
 
     const data = await resp.json();
+    console.log('[Gemini] HTTP status:', resp.status);
+    console.log('[Gemini] Full response:', JSON.stringify(data));
 
-    // Tratamento de erros da API Gemini
+    // Mostra erro exato da API
     if(data.error){
-      const msg = data.error.message||JSON.stringify(data.error);
-      if(data.error.code===429){
-        throw new Error('⏳ Limite diário atingido. Tente novamente amanhã.');
-      }
-      // Mostra o erro real para diagnóstico
-      throw new Error('Gemini: ' + msg);
+      throw new Error('ERRO ' + resp.status + ': ' + (data.error.message||JSON.stringify(data.error)));
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
