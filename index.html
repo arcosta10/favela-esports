@@ -448,7 +448,7 @@ const ADMIN_PASS  = 'admin123';
 const PLAYER_PASS = 'favela123';
 
 // Chave Gemini (Google AI Studio — gratuito, 1500 req/dia)
-window._gk = 'AQ.Ab8RN6IRpmO15FP-jtK5-ozgHyLVQtn56S5um0XD0I16u8u6-A';
+window._gk = 'AIzaSyBkFc7LM8J2Vv56AGB5kLFVJpMUrotJGOs';
 
 // ============================================================
 // GITHUB DATA STORAGE
@@ -2198,25 +2198,14 @@ Regras:
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
     const body = JSON.stringify({ contents: [{ parts }] });
 
-    // Método 1: ?key= (para AIzaSy)
-    let resp = await fetch(url + '?key=' + window._gk, {
+    const resp = await fetch(url + '?key=' + window._gk, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body
     });
-    let data = await resp.json();
-    console.log('[Gemini] Método ?key= status:', resp.status, JSON.stringify(data).slice(0,200));
 
-    // Se deu erro de auth, tenta Método 2: x-goog-api-key (para AQ.)
-    if(data.error && (resp.status===400||resp.status===401||resp.status===403)){
-      resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': window._gk },
-        body
-      });
-      data = await resp.json();
-      console.log('[Gemini] Método x-goog-api-key status:', resp.status, JSON.stringify(data).slice(0,200));
-    }
+    const data = await resp.json();
+    console.log('[Gemini] status:', resp.status, JSON.stringify(data).slice(0,200));
 
     if(data.error){
       throw new Error('Erro ' + resp.status + ': ' + (data.error.message||JSON.stringify(data.error)));
