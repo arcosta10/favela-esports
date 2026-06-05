@@ -342,11 +342,11 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
         <button class="ni" onclick="goto('rankings',this)"><i class="fas fa-trophy"></i> Rankings</button>
         <button class="ni" onclick="goto('matches',this)"><i class="fas fa-crosshairs"></i> Partidas</button>
         <button class="ni" onclick="goto('history',this)"><i class="fas fa-archive"></i> Histórico</button>
+        <button class="ni" onclick="goto('players',this)"><i class="fas fa-users"></i> Jogadores</button>
       </div>
       <div class="nav-sec" id="nav-admin-sec">
         <div class="nav-sec-label">Administração</div>
         <button class="ni" onclick="goto('calendar',this)"><i class="fas fa-calendar-alt"></i> Calendário</button>
-        <button class="ni" onclick="goto('players',this)"><i class="fas fa-users"></i> Jogadores</button>
         <button class="ni" onclick="goto('reports',this)"><i class="fas fa-chart-bar"></i> Relatórios</button>
       </div>
     </nav>
@@ -806,7 +806,7 @@ document.addEventListener('keydown',e=>{
 // NAVIGATION
 // ============================================================
 function goto(page,el){
-  if(!isAdmin()&&['calendar','players','reports'].includes(page))return;
+  if(!isAdmin()&&['calendar','reports'].includes(page))return;
   document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
   if(el)el.classList.add('active');
   document.getElementById('sidebar').classList.remove('open');
@@ -1028,7 +1028,9 @@ function pgPlayers(){
   const scoreMax = W.dano + W.salvamentos + W.kills + W.suportes;
 
   return`
-  <div style="margin-bottom:22px"><button class="btn btn-primary" onclick="modalAddPlayer()"><i class="fas fa-plus"></i> Novo Jogador</button></div>
+  <div style="margin-bottom:22px">
+    ${isAdmin()?`<button class="btn btn-primary" onclick="modalAddPlayer()"><i class="fas fa-plus"></i> Novo Jogador</button>`:`<div class="view-banner"><i class="fas fa-eye"></i> Modo visualização — somente leitura</div>`}
+  </div>
   <div class="pcards" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${PLAYERS.map(p=>{
     const st=pStats(p.id), apt=st.n>=40, pct=Math.min(100,(st.n/40*100)).toFixed(0);
     const rkP = rkGeral.find(x=>+x.id===+p.id);
@@ -1127,10 +1129,10 @@ function pgPlayers(){
       <div class="pbar"><div class="pfill ${apt?'full':''}" style="width:${pct}%"></div></div>
 
       <!-- Ações -->
-      <div style="display:flex;gap:6px;margin-top:12px">
+      ${isAdmin()?`<div style="display:flex;gap:6px;margin-top:12px">
         <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Editar</button>
         <button class="btn btn-danger" onclick="delPlayer(${p.id})"><i class="fas fa-trash"></i></button>
-      </div>
+      </div>`:``}
     </div>`;
   }).join('')}</div>`;
 }
@@ -1839,7 +1841,9 @@ function confirmDelMatch(id){
 // ============================================================
 // PLAYERS CRUD
 // ============================================================
-function modalAddPlayer(){openModal('Novo Jogador',`<div class="fg"><label>Nickname *</label><input type="text" class="finput" id="p-nick" placeholder="Ex: FV Jogador"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePlayer()"><i class="fas fa-save"></i> Salvar</button>`)}
+function modalAddPlayer(){
+  if(!isAdmin()){alert('Sem permissão.');return;}
+  openModal('Novo Jogador',`<div class="fg"><label>Nickname *</label><input type="text" class="finput" id="p-nick" placeholder="Ex: FV Jogador"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePlayer()"><i class="fas fa-save"></i> Salvar</button>`)}
 function savePlayer(){
   const nick=document.getElementById('p-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
@@ -1848,7 +1852,9 @@ function savePlayer(){
   saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
 }
-function modalEditPlayer(id,nick){openModal('Editar Jogador',`<div class="fg"><label>Nickname</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})">Salvar</button>`)}
+function modalEditPlayer(id,nick){
+  if(!isAdmin()){alert('Sem permissão.');return;}
+  openModal('Editar Jogador',`<div class="fg"><label>Nickname</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})">Salvar</button>`)}
 function updPlayer(id){
   const nick=document.getElementById('ep-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
@@ -1857,6 +1863,7 @@ function updPlayer(id){
   syncBg(()=>persistAll());
 }
 function delPlayer(id){
+  if(!isAdmin()){alert('Sem permissão.');return;}
   if(!confirm('Excluir jogador?'))return;
   PLAYERS = PLAYERS.filter(p=>+p.id!==+id);
   saveCache(); renderPage('players', true);
