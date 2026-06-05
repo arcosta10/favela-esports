@@ -224,8 +224,32 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
   /* Avatar no topo centralizado no mobile */
   .modal-body [style*="width:80px;height:80px;border-radius:50%"]{margin:0 auto 8px!important}
 
-  /* PERFIL mobile */
-  #pf-grid-stats{grid-template-columns:repeat(3,1fr)!important}
+  /* PERFIL mobile - container principal */
+  .pf-root{width:100%!important;max-width:100%!important;padding:0!important;overflow-x:hidden!important}
+  .pf-header-card{padding:16px!important}
+  .pf-header-inner{flex-direction:column!important;align-items:center!important;text-align:center!important;gap:12px!important}
+  .pf-avatar{flex-shrink:0!important}
+  .pf-info{min-width:0!important;width:100%!important}
+  .pf-info-badges{justify-content:center!important}
+  .pf-ranking-row{justify-content:center!important;margin-top:12px!important}
+  /* Grids de estatísticas gerais: 2 colunas */
+  .pf-stats-grid{grid-template-columns:repeat(2,1fr)!important}
+  /* Score + Mapa: coluna única */
+  .pf-score-map-grid{grid-template-columns:1fr!important}
+  /* Composição interna: 1 coluna */
+  .pf-composition-grid{grid-template-columns:1fr!important}
+  /* Gráficos: 1 coluna */
+  .pf-charts-grid{grid-template-columns:1fr!important}
+  .chart-card{width:100%!important;min-width:0!important;margin-bottom:12px!important}
+  /* Conquistas: 2 colunas */
+  .pf-achievements-grid{grid-template-columns:repeat(2,1fr)!important}
+  /* Filtros de período: wrap */
+  .pf-filter-row{flex-wrap:wrap!important;gap:4px!important}
+  /* Stats de mapa por coluna */
+  .pf-map-stat-grid{grid-template-columns:repeat(2,1fr)!important;gap:4px!important}
+
+  /* PERFIL mobile - IDs legados */
+  #pf-grid-stats{grid-template-columns:repeat(2,1fr)!important}
   #pf-grid-score{grid-template-columns:1fr!important}
   #pf-grid-charts{grid-template-columns:1fr!important}
 
@@ -238,10 +262,10 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
   .tp-card{flex-direction:column;align-items:center;text-align:center;padding:10px 6px;gap:3px;margin-bottom:0;border-radius:2px}
 
   /* Tipografia compacta */
-  .tp-num{font-size:0;line-height:0;margin:0;padding:0} /* esconde número, usa medalha */
+  .tp-num{font-size:0;line-height:0;margin:0;padding:0}
   .tp-medal{font-size:22px;line-height:1;display:block}
   .tp-nick{font-size:13px;font-weight:800;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .tp-info{display:none} /* esconde linha longa, usa score-big */
+  .tp-info{display:none}
   .tp-score-big{display:block;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:900;color:var(--gold);line-height:1.1}
   .tp-card .badge{font-size:8px;padding:2px 5px;margin-top:2px}
 
@@ -274,7 +298,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
   .sidebar{transform:translateX(-100%);transition:transform 0.25s;z-index:300}
   .sidebar.open{transform:translateX(0)}
   .main{margin-left:0}
-  .content{padding:16px}
+  .content{padding:16px;overflow-x:hidden}
   .cards-row{grid-template-columns:repeat(2,1fr)}
   .topbar{padding:0 16px}
   .menu-btn{display:flex!important}
@@ -1576,24 +1600,24 @@ function pgProfile(){
   ];
 
   return`
-<div style="max-width:1100px;margin:0 auto">
+<div class="pf-root" style="max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box;overflow-x:hidden">
 
   <!-- ── CABEÇALHO ── -->
   ${(()=>{
     const avatarSrc=getAvatarSrc(player);
     const statusLabel={'ativo':'Ativo','reserva':'Reserva','inativo':'Inativo'}[player.player_status||'ativo']||'Ativo';
     const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
-    return`<div style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px">
-      <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
-        <div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+    return`<div class="pf-header-card" style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;box-sizing:border-box">
+      <div class="pf-header-inner" style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+        <div class="pf-avatar" style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center">
           ${avatarSrc
           ? `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\"font-family: Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>'">`
           : `<span style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold)">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
         </div>
-        <div style="flex:1;min-width:200px">
+        <div class="pf-info" style="flex:1;min-width:180px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
           ${player.full_name?`<div style="font-size:13px;color:var(--gray);margin-top:2px">${player.full_name}</div>`:''}
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <div class="pf-info-badges" style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
             ${player.role_in_team?`<span style="background:rgba(255,215,0,0.1);color:var(--gold2);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.2);letter-spacing:0.1em;text-transform:uppercase">${player.role_in_team}</span>`:''}
             <span style="background:${statusColor}18;color:${statusColor};padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid ${statusColor}44;letter-spacing:0.1em;text-transform:uppercase">${statusLabel}</span>
             <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.25)">#${posG} Ranking</span>
@@ -1610,7 +1634,7 @@ function pgProfile(){
             <span>${stAll.n} partida(s) de 40</span>
           </div>
         </div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+      <div class="pf-ranking-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
         ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
         <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
           <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
@@ -1622,7 +1646,7 @@ function pgProfile(){
 
   <!-- ── ESTATÍSTICAS GERAIS ── -->
   <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Estatísticas Gerais</div></div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px">
+  <div class="pf-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px;width:100%;box-sizing:border-box">
     ${[
       {label:'Partidas',val:stAll.n,icon:'fa-crosshairs',color:'var(--gold)'},
       {label:'Dano Total',val:fmtNum(stAll.dano),icon:'fa-fire',color:'#FF6B35'},
@@ -1649,7 +1673,7 @@ function pgProfile(){
   </div>
 
   <!-- ── SCORE ── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+  <div class="pf-score-map-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;width:100%;box-sizing:border-box">
     <div>
       <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Score Atual</div></div>
       <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:20px">
@@ -1664,7 +1688,7 @@ function pgProfile(){
           <div style="width:${scorePct}%;height:100%;background:linear-gradient(90deg,${ss.color}88,${ss.color});border-radius:4px;transition:width 0.6s"></div>
         </div>
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:8px">Composição</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="pf-composition-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           ${[
             {label:'Dano',val:contrib.dano,max:W.dano,color:'#FF6B35'},
             {label:'Salvamentos',val:contrib.salv,max:W.salvamentos,color:'#00D084'},
@@ -1693,7 +1717,7 @@ function pgProfile(){
             <span class="badge badge-map map-${m.mapa}" style="font-size:10px">${m.mapa}</span>
             <div style="font-size:10px;color:var(--gray);margin-top:3px">${m.n} pt(s)</div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1">
+          <div class="pf-map-stat-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1">
             ${[{l:'Dano/PT',v:fmtNum(m.dano),c:'#FF6B35'},{l:'Kills/PT',v:m.kills.toFixed(1),c:'#FFD700'},{l:'Salv/PT',v:m.salv.toFixed(1),c:'#00D084'},{l:'Sup/PT',v:m.sup.toFixed(1),c:'#00B8FF'}].map(s=>`
             <div style="text-align:center"><div style="font-size:9px;color:var(--gray)">${s.l}</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${s.c}">${s.v}</div></div>`).join('')}
           </div>
@@ -1705,11 +1729,11 @@ function pgProfile(){
   <!-- ── EVOLUÇÃO ── -->
   <div class="sec-hdr" style="justify-content:space-between">
     <div class="sec-title"><div class="sec-title-line"></div>Evolução por Partida</div>
-    <div style="display:flex;gap:6px">
+    <div class="pf-filter-row" style="display:flex;gap:6px">
       ${['7d','30d','all'].map(f=>`<button onclick="setProfileFilter('${f}')" id="pf-${f}" class="btn btn-ghost" style="font-size:10px;padding:5px 10px${f===_profileFilter?';border-color:var(--gold);color:var(--gold)':''}">${f==='7d'?'7 Dias':f==='30d'?'30 Dias':'Temporada'}</button>`).join('')}
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+  <div class="pf-charts-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;width:100%;box-sizing:border-box">
     <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Dano / Partida</div><div style="position:relative;height:150px"><canvas id="pfDmgChart"></canvas></div></div>
     <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Kills / Partida</div><div style="position:relative;height:150px"><canvas id="pfKillChart"></canvas></div></div>
     <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Score / Partida</div><div style="position:relative;height:150px"><canvas id="pfScoreChart"></canvas></div></div>
@@ -1717,7 +1741,7 @@ function pgProfile(){
 
   <!-- ── CONQUISTAS ── -->
   <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Conquistas</div></div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px">
+  <div class="pf-achievements-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px;width:100%;box-sizing:border-box">
     ${conquistas.map(c=>`
     <div style="background:${c.earned?'rgba(255,215,0,0.08)':'#0d0d0d'};border:1px solid ${c.earned?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.06)'};padding:14px;text-align:center;opacity:${c.earned?1:0.45}">
       <div style="font-size:28px;margin-bottom:8px">${c.icon}</div>
