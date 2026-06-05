@@ -209,6 +209,11 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 
 /* TOP 3 MOBILE — cards horizontais em linha */
 @media(max-width:768px){
+  /* PERFIL mobile */
+  #pf-grid-stats{grid-template-columns:repeat(3,1fr)!important}
+  #pf-grid-score{grid-template-columns:1fr!important}
+  #pf-grid-charts{grid-template-columns:1fr!important}
+
   /* Grid vira coluna única: Top3 acima, gráfico abaixo */
   .dash-top3-grid{display:flex!important;flex-direction:column!important;gap:12px!important}
   .top3-col,.chart-col{width:100%}
@@ -343,6 +348,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
         <button class="ni" onclick="goto('matches',this)"><i class="fas fa-crosshairs"></i> Partidas</button>
         <button class="ni" onclick="goto('history',this)"><i class="fas fa-archive"></i> Histórico</button>
         <button class="ni" onclick="goto('players',this)"><i class="fas fa-users"></i> Jogadores</button>
+        <div id="nav-profile-btn" style="display:none"><button class="ni" onclick="goto('profile',this)"><i class="fas fa-user-circle"></i> Meu Perfil</button></div>
       </div>
       <div class="nav-sec" id="nav-admin-sec">
         <div class="nav-sec-label">Administração</div>
@@ -762,6 +768,7 @@ function openApp(){
   document.getElementById('appShell').classList.remove('hidden');
   // Sidebar admin section
   document.getElementById('nav-admin-sec').style.display=isAdmin()?'':'none';
+  document.getElementById('nav-profile-btn').style.display=isAdmin()?'none':'';
   // User info
   const ini=CURRENT_USER.nick.replace('FV ','').slice(0,2).toUpperCase();
   document.getElementById('sb-av').textContent=isAdmin()?'AD':ini;
@@ -814,7 +821,7 @@ function goto(page,el){
 }
 
 async function renderPage(page, skipSync=false){
-  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios'};
+  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios',profile:'Meu Perfil'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
@@ -824,7 +831,7 @@ async function renderPage(page, skipSync=false){
     document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>`;
     await loadAll();
   }
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
   document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
   setTimeout(()=>initCharts(page),80);
 }
@@ -832,8 +839,8 @@ async function renderPage(page, skipSync=false){
 async function reloadData(){
   await loadAll(true); // força busca nova
   const page = document.getElementById('tb-title').textContent.toLowerCase();
-  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports'};
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports};
+  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports','meu perfil':'profile'};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
   const key = map[page]||'dashboard';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
@@ -1313,6 +1320,7 @@ function initCharts(page){
     const dCtx=document.getElementById('dmgChart');
     if(dCtx&&pw.length)chartInstances.dmg=new Chart(dCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio',data:pw.map(p=>{const st=pStats(p.id);return+(st.dano/st.n).toFixed(0)}),backgroundColor:pw.map(p=>pStats(p.id).n>=40?'rgba(184,134,11,0.75)':'rgba(239,68,68,0.5)'),borderColor:pw.map(p=>pStats(p.id).n>=40?'#FFD700':'#EF4444'),borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:11}}}}}});
   }
+  if(page==='profile')initProfileCharts();
   if(page==='reports'&&MATCHES.length>0){
     const mfilt=document.getElementById('rp-ms')?.value||'';
     const pfilt=document.getElementById('rp-ps')?.value||'';
@@ -1321,6 +1329,282 @@ function initCharts(page){
     const rCtx=document.getElementById('rptChart');
     if(rCtx&&pw.length)chartInstances.rpt=new Chart(rCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio/Partida',data:pw.map(p=>getData(p.id)),backgroundColor:'rgba(184,134,11,0.75)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#FFD700',font:{size:11}}}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:10}}}}}});
   }
+}
+
+
+// ============================================================
+// MEU PERFIL
+// ============================================================
+let _profileFilter = '7d'; // '7d' | '30d' | 'all'
+
+function pgProfile(){
+  if(isAdmin()){
+    return`<div class="empty"><i class="fas fa-user-shield"></i><h3>Perfil Admin</h3><p>Admins não possuem perfil de jogador. Use a página <b>Jogadores</b> para ver estatísticas individuais.</p></div>`;
+  }
+  const pid = CURRENT_USER.pid;
+  const player = PLAYERS.find(p=>+p.id===+pid);
+  if(!player){return`<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Jogador não encontrado</h3><p>Dados do perfil indisponíveis.</p></div>`;}
+
+  // Stats completos
+  const stAll = pStats(pid);
+  const rkAll = calcRanking(MATCHES);
+  const rkW   = calcRanking(getWeekFilter());
+  const rkM   = calcRanking(getMonthFilter());
+  const posG  = rkAll.findIndex(p=>+p.id===+pid)+1||'-';
+  const posS  = rkW.findIndex(p=>+p.id===+pid)+1||'-';
+  const posM  = rkM.findIndex(p=>+p.id===+pid)+1||'-';
+  const rkP   = rkAll.find(p=>+p.id===+pid);
+  const sc    = rkP?.score??0;
+  const med   = rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
+  const contrib= rkP?.contrib??{dano:0,salv:0,kills:0,sup:0};
+  const ss    = rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
+  const apt   = stAll.n>=40;
+  const W     = SCORE_WEIGHTS;
+  const scoreMax = W.dano+W.salvamentos+W.kills+W.suportes;
+  const scorePct = sc?(sc/scoreMax*100).toFixed(1):0;
+
+  // Stats por mapa
+  const MAP_COLORS={Erangel:'#00D084',Miramar:'#FF6B35',Rondo:'#FFD700',Sanhok:'#00B8FF',Vikendi:'#8A5CFF',Livik:'#FF4D94',Taego:'#FFFFFF'};
+  const mapas = [...new Set(MATCHES.map(m=>m.mapa).filter(Boolean))];
+  const mapStats = mapas.map(mapa=>{
+    const ms = MATCHES.filter(m=>m.mapa===mapa);
+    const st = pStats(pid, ms);
+    return {mapa, n:st.n, dano:st.n?+(st.dano/st.n).toFixed(0):0, kills:st.n?+(st.kills/st.n).toFixed(2):0, salv:st.n?+(st.salv/st.n).toFixed(2):0, sup:st.n?+(st.sup/st.n).toFixed(2):0};
+  }).filter(m=>m.n>0).sort((a,b)=>b.n-a.n);
+  const bestMap = mapStats.reduce((best,m)=>{
+    const s = m.dano*0.6+m.kills*0.25+m.salv*0.1+m.sup*0.05;
+    const bs = best?(best.dano*0.6+best.kills*0.25+best.salv*0.1+best.sup*0.05):0;
+    return s>bs?m:best;
+  }, null);
+
+  // Conquistas preparadas
+  const conquistas=[
+    {icon:'🏆',label:'MVP da Semana',desc:'Maior score na semana',earned:posS===1},
+    {icon:'👑',label:'MVP do Mês',desc:'Maior score no mês',earned:posM===1},
+    {icon:'🥉',label:'Top 3 Geral',desc:'Top 3 no ranking geral',earned:typeof posG==='number'&&posG<=3},
+    {icon:'💥',label:'Maior Dano',desc:'Maior dano médio geral',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.medias.dano-a.medias.dano)[0]?.id===+pid},
+    {icon:'🔫',label:'Maior Kill Game',desc:'Top kills no ranking',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.kills-a.st.kills)[0]?.id===+pid},
+    {icon:'🚑',label:'Maior Salvamentos',desc:'Top salvamentos geral',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.salv-a.st.salv)[0]?.id===+pid},
+  ];
+
+  return`
+<div style="max-width:1100px;margin:0 auto">
+
+  <!-- ── CABEÇALHO ── -->
+  <div style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--gold);flex-shrink:0">
+      ${player.nick.replace('FV ','').slice(0,2).toUpperCase()}
+    </div>
+    <div style="flex:1;min-width:200px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
+        <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:3px 10px;font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.3)">#${posG} Ranking Geral</span>
+        <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:11px">${apt?'✓ APTO PARA PREMIAÇÃO':'⚠ NÃO APTO'}</span>
+      </div>
+      <div style="margin-top:8px;font-size:13px;color:var(--gray)">
+        <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
+        <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+        <span style="color:${ss.color}">${ss.label}</span>
+        <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+        <span>${stAll.n} partida(s) de 40</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
+      <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
+        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${r.color}">#${r.pos}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- ── ESTATÍSTICAS GERAIS ── -->
+  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Estatísticas Gerais</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px">
+    ${[
+      {label:'Partidas',val:stAll.n,icon:'fa-crosshairs',color:'var(--gold)'},
+      {label:'Dano Total',val:fmtNum(stAll.dano),icon:'fa-fire',color:'#FF6B35'},
+      {label:'Kills Totais',val:stAll.kills,icon:'fa-skull-crossbones',color:'#FFD700'},
+      {label:'Salvamentos',val:stAll.salv,icon:'fa-medkit',color:'#00D084'},
+      {label:'Suportes',val:stAll.sup,icon:'fa-hands-helping',color:'#00B8FF'},
+    ].map(s=>`
+    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
+      <i class="fas ${s.icon}" style="color:${s.color};font-size:18px;margin-bottom:8px;display:block"></i>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff">${s.val}</div>
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px">${s.label}</div>
+    </div>`).join('')}
+    ${[
+      {label:'Dano/PT',val:stAll.n?fmtNum(med.dano):'—',color:'#FF6B35'},
+      {label:'Kills/PT',val:stAll.n?med.kills.toFixed(2):'—',color:'#FFD700'},
+      {label:'Salv/PT',val:stAll.n?med.salv.toFixed(2):'—',color:'#00D084'},
+      {label:'Sup/PT',val:stAll.n?med.sup.toFixed(2):'—',color:'#00B8FF'},
+    ].map(s=>`
+    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:6px">${s.label}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${s.color}">${s.val}</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:3px">por partida</div>
+    </div>`).join('')}
+  </div>
+
+  <!-- ── SCORE ── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div>
+      <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Score Atual</div></div>
+      <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:${ss.color};line-height:1">${sc}<span style="font-size:18px;color:var(--gray)"> / ${scoreMax}</span></div>
+            <div style="font-size:11px;color:var(--gray);margin-top:4px">${scorePct}% do máximo teórico</div>
+          </div>
+          <span style="padding:5px 12px;background:${ss.bg};color:${ss.color};border:1px solid ${ss.color}44;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.08em">${ss.label}</span>
+        </div>
+        <div style="background:rgba(0,0,0,0.4);height:8px;border-radius:4px;margin-bottom:16px">
+          <div style="width:${scorePct}%;height:100%;background:linear-gradient(90deg,${ss.color}88,${ss.color});border-radius:4px;transition:width 0.6s"></div>
+        </div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:8px">Composição</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            {label:'Dano',val:contrib.dano,max:W.dano,color:'#FF6B35'},
+            {label:'Salvamentos',val:contrib.salv,max:W.salvamentos,color:'#00D084'},
+            {label:'Kills',val:contrib.kills,max:W.kills,color:'#FFD700'},
+            {label:'Suportes',val:contrib.sup,max:W.suportes,color:'#00B8FF'},
+          ].map(c=>`
+          <div style="background:rgba(255,255,255,0.03);padding:8px;border-left:2px solid ${c.color}">
+            <div style="font-size:9px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em">${c.label}</div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:${c.color};margin:3px 0">${c.val.toFixed(2)}<span style="font-size:11px;color:var(--gray)"> / ${c.max.toFixed(2)}</span></div>
+            <div style="background:rgba(0,0,0,0.4);height:4px;border-radius:2px">
+              <div style="width:${c.max>0?(c.val/c.max*100).toFixed(0):0}%;height:100%;background:${c.color};border-radius:2px"></div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── DESEMPENHO POR MAPA ── -->
+    <div>
+      <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Por Mapa ${bestMap?`<span style="font-size:12px;color:var(--gold);font-weight:400">🏆 Melhor: ${bestMap.mapa}</span>`:''}</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${mapStats.length===0?`<div style="color:var(--gray);padding:20px;font-size:13px">Sem dados por mapa.</div>`:
+        mapStats.map(m=>`
+        <div style="background:#0d0d0d;border:1px solid ${m.mapa===bestMap?.mapa?'rgba(255,215,0,0.3)':'rgba(255,255,255,0.07)'};padding:12px 14px;display:flex;align-items:center;gap:12px">
+          <div>
+            <span class="badge badge-map map-${m.mapa}" style="font-size:10px">${m.mapa}</span>
+            <div style="font-size:10px;color:var(--gray);margin-top:3px">${m.n} pt(s)</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:1">
+            ${[{l:'Dano/PT',v:fmtNum(m.dano),c:'#FF6B35'},{l:'Kills/PT',v:m.kills.toFixed(1),c:'#FFD700'},{l:'Salv/PT',v:m.salv.toFixed(1),c:'#00D084'},{l:'Sup/PT',v:m.sup.toFixed(1),c:'#00B8FF'}].map(s=>`
+            <div style="text-align:center"><div style="font-size:9px;color:var(--gray)">${s.l}</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:${s.c}">${s.v}</div></div>`).join('')}
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EVOLUÇÃO ── -->
+  <div class="sec-hdr" style="justify-content:space-between">
+    <div class="sec-title"><div class="sec-title-line"></div>Evolução por Partida</div>
+    <div style="display:flex;gap:6px">
+      ${['7d','30d','all'].map(f=>`<button onclick="setProfileFilter('${f}')" id="pf-${f}" class="btn btn-ghost" style="font-size:10px;padding:5px 10px${f===_profileFilter?';border-color:var(--gold);color:var(--gold)':''}">${f==='7d'?'7 Dias':f==='30d'?'30 Dias':'Temporada'}</button>`).join('')}
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+    <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Dano / Partida</div><div style="position:relative;height:150px"><canvas id="pfDmgChart"></canvas></div></div>
+    <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Kills / Partida</div><div style="position:relative;height:150px"><canvas id="pfKillChart"></canvas></div></div>
+    <div class="chart-card" style="margin:0"><div style="font-size:11px;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.08em">Score / Partida</div><div style="position:relative;height:150px"><canvas id="pfScoreChart"></canvas></div></div>
+  </div>
+
+  <!-- ── CONQUISTAS ── -->
+  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Conquistas</div></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:20px">
+    ${conquistas.map(c=>`
+    <div style="background:${c.earned?'rgba(255,215,0,0.08)':'#0d0d0d'};border:1px solid ${c.earned?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.06)'};padding:14px;text-align:center;opacity:${c.earned?1:0.45}">
+      <div style="font-size:28px;margin-bottom:8px">${c.icon}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:${c.earned?'var(--gold)':'var(--gray)'};letter-spacing:0.05em">${c.label}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">${c.desc}</div>
+      ${c.earned?`<div style="font-size:9px;color:var(--gold);margin-top:6px;text-transform:uppercase;letter-spacing:0.1em">✓ Conquistado</div>`:``}
+    </div>`).join('')}
+  </div>
+
+</div>`;
+}
+
+function setProfileFilter(f){
+  _profileFilter=f;
+  // Atualiza visual dos botões
+  ['7d','30d','all'].forEach(x=>{
+    const btn=document.getElementById('pf-'+x);
+    if(btn){btn.style.borderColor=x===f?'var(--gold)':'';btn.style.color=x===f?'var(--gold)':'';}
+  });
+  initProfileCharts();
+}
+
+function initProfileCharts(){
+  if(!CURRENT_USER||isAdmin())return;
+  const pid=CURRENT_USER.pid;
+
+  // Filtra partidas pelo período selecionado
+  const now=new Date();
+  let ms=MATCHES;
+  if(_profileFilter==='7d'){
+    const d7=new Date(now); d7.setDate(now.getDate()-7);
+    ms=MATCHES.filter(m=>new Date(m.data)>=d7);
+  } else if(_profileFilter==='30d'){
+    const d30=new Date(now); d30.setDate(now.getDate()-30);
+    ms=MATCHES.filter(m=>new Date(m.data)>=d30);
+  }
+
+  // Pega partidas em que o jogador participou, ordenadas por data
+  const ptidas=ms.filter(m=>(m.estatisticas||[]).some(s=>+s.jogador_id===+pid))
+    .sort((a,b)=>new Date(a.data)-new Date(b.data));
+
+  const labels=ptidas.map((m,i)=>m.data||`#${i+1}`);
+  const dmgs=ptidas.map(m=>{const s=(m.estatisticas||[]).find(s=>+s.jogador_id===+pid);return s?+s.dano:0;});
+  const kills=ptidas.map(m=>{const s=(m.estatisticas||[]).find(s=>+s.jogador_id===+pid);return s?+s.kills:0;});
+
+  // Score por partida: normaliza contra toda a temporada
+  const rkAll=calcRanking(MATCHES);
+  const maxDano=Math.max(...rkAll.map(p=>p.medias.dano),1);
+  const maxKills=Math.max(...rkAll.map(p=>p.medias.kills),1);
+  const maxSalv=Math.max(...rkAll.map(p=>p.medias.salv),1);
+  const maxSup=Math.max(...rkAll.map(p=>p.medias.sup),1);
+  const W=SCORE_WEIGHTS;
+  const scoreMax=W.dano+W.salvamentos+W.kills+W.suportes;
+  const scores=ptidas.map(m=>{
+    const s=(m.estatisticas||[]).find(s=>+s.jogador_id===+pid);
+    if(!s)return 0;
+    return parseFloat((
+      (s.dano/maxDano)*W.dano+
+      (s.salvamentos/maxSalv)*W.salvamentos+
+      (s.kills/maxKills)*W.kills+
+      (s.suportes/maxSup)*W.suportes
+    ).toFixed(2));
+  });
+
+  const chartOpts=(label,data,color)=>({
+    type:'line',
+    data:{labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'22',borderWidth:2,fill:true,tension:0.4,pointRadius:ptidas.length<=20?3:0,pointHoverRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
+      y:{grid:{color:'rgba(255,215,0,0.05)'},ticks:{color:'#888',font:{size:10}}},
+      x:{grid:{display:false},ticks:{color:'#666',font:{size:9},maxTicksLimit:6,maxRotation:0}}
+    }}
+  });
+
+  ['pfDmgChart','pfKillChart','pfScoreChart'].forEach(id=>{
+    if(chartInstances[id]){try{chartInstances[id].destroy();}catch(e){}}
+  });
+
+  const dCtx=document.getElementById('pfDmgChart');
+  const kCtx=document.getElementById('pfKillChart');
+  const sCtx=document.getElementById('pfScoreChart');
+
+  if(ptidas.length===0){
+    [dCtx,kCtx,sCtx].forEach(c=>{if(c){const p=c.parentElement;p.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray);font-size:12px">Sem dados no período</div>';}});
+    return;
+  }
+
+  if(dCtx) chartInstances['pfDmgChart']=new Chart(dCtx,chartOpts('Dano',dmgs,'#FF6B35'));
+  if(kCtx) chartInstances['pfKillChart']=new Chart(kCtx,chartOpts('Kills',kills,'#FFD700'));
+  if(sCtx) chartInstances['pfScoreChart']=new Chart(sCtx,chartOpts('Score',scores,'#00D084'));
 }
 
 // ============================================================
