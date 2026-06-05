@@ -294,33 +294,9 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 /* VIEW ONLY BANNER */
 .view-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(184,134,11,0.08);border:1px solid rgba(255,215,0,0.2);font-size:12px;color:var(--gold);letter-spacing:0.05em;margin-bottom:18px}
 
-/* ── AVATAR — regras globais que nunca devem ser sobrescritas ── */
-/* O wrapper nunca usa display:flex quando contém imagem — o JS cuida disso */
-.pf-avatar{
-  width:90px!important;height:90px!important;
-  min-width:90px!important;min-height:90px!important;
-  border-radius:50%!important;overflow:hidden!important;
-  flex-shrink:0!important;
-}
-.pf-avatar img{
-  width:100%!important;height:100%!important;
-  object-fit:cover!important;object-position:center center!important;
-  display:block!important;
-  /* Garante que a imagem nunca herda flex-sizing */
-  flex:none!important;align-self:auto!important;
-}
-/* Fallback de iniciais dentro do pf-avatar */
-.pf-avatar span{
-  font-family:'Barlow Condensed',sans-serif;
-  font-weight:900;color:var(--gold);line-height:1;
-}
-
-/* avatarHtml circles (tamanho variável, controlado por JS) */
-[data-av] img{
-  width:100%!important;height:100%!important;
-  object-fit:cover!important;object-position:center center!important;
-  display:block!important;flex:none!important;
-}
+/* ── AVATAR — regras globais ── */
+.pf-avatar{width:90px!important;height:90px!important;min-width:90px!important;min-height:90px!important;border-radius:50%!important;overflow:hidden!important;flex-shrink:0!important;}
+.pf-avatar img{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center center!important;display:block!important;flex:none!important;}
 
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%);transition:transform 0.25s;z-index:300}
@@ -471,10 +447,8 @@ const ADMIN_EMAIL = 'admin@favela.gg';
 const ADMIN_PASS  = 'admin123';
 const PLAYER_PASS = 'favela123';
 
-// Chave de integração IA (dividida para evitar falso-positivo no scanner)
-window._ak = ['sk-ant-api03-RMJHwWIcdzSgBwuoRpbPR5P3-b_Vuu3PkCx',
-              'RnIHyzEygbd9Gvs3n-4PkpBEb4cXj3LpiIlQS55-ZEp2Rr',
-              'SDYtA-_0tfdgAA'].join('');
+// Chave Gemini (Google AI Studio — gratuito, 1500 req/dia)
+window._gk = 'AIzaSyDNUJchkj5_Ztp9mQdhNegtnu349IwBdbI';
 
 // ============================================================
 // GITHUB DATA STORAGE
@@ -721,11 +695,11 @@ async function persistAll(){
   saveCache();
   try {
     if(!_ghSha){ try{ await ghRead(); }catch(e){} }
-    // Remove base64 das fotos de partida antes de salvar no GitHub
+    // Preserva apenas URLs públicas (não base64) nas fotos de partida
     const matchesSafe = MATCHES.map(m => ({
       ...m,
-      foto1_url: m.foto1_url?.startsWith('data:') ? null : (m.foto1_url || null),
-      foto2_url: m.foto2_url?.startsWith('data:') ? null : (m.foto2_url || null),
+      foto1_url: (m.foto1_url && m.foto1_url.startsWith('http')) ? m.foto1_url : null,
+      foto2_url: (m.foto2_url && m.foto2_url.startsWith('http')) ? m.foto2_url : null,
     }));
     // Remove avatar_url base64 dos jogadores — avatares ficam só no localStorage
     const playersSafe = PLAYERS.map(p => ({
@@ -979,7 +953,13 @@ window.addEventListener('load', async ()=>{
     const adminOnlyPages = ['calendar','reports'];
     if(!isAdmin() && adminOnlyPages.includes(savedPage)) savedPage = 'dashboard';
 
-    // Abre o app na página correta
+    // Restaura o jogador visualizado (para page player-profile)
+    try{
+      const savedPid = localStorage.getItem('fv_viewing_player_id');
+      if(savedPid) window._viewingPlayerId = +savedPid;
+      else if(savedPage==='player-profile') savedPage='players';
+    }catch(e){}
+
     openApp(savedPage);
 
     // Atualiza dados do GitHub em background (sem bloquear a UI)
@@ -1020,7 +1000,7 @@ document.addEventListener('keydown',e=>{
 // ============================================================
 function goto(page,el){
   if(!isAdmin()&&['calendar','reports'].includes(page))return;
-  // ── Persiste página atual para restaurar no F5 ──
+  if(page==='profile') window._viewingPlayerId = CURRENT_USER?.pid || null;
   try{ localStorage.setItem('fv_current_page', page); }catch(e){}
   document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -1029,26 +1009,24 @@ function goto(page,el){
 }
 
 async function renderPage(page, skipSync=false){
-  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios',profile:'Meu Perfil'};
+  const titles={dashboard:'Dashboard',rankings:'Rankings',matches:'Partidas',history:'Histórico',calendar:'Calendário',players:'Jogadores',reports:'Relatórios',profile:'Meu Perfil','player-profile':'Perfil do Jogador'};
   document.getElementById('tb-title').textContent=titles[page]||page;
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
-  // Se skipSync=true, não busca dados — usa o estado atual em memória
-  // Isso evita que dados recém-inseridos sejam sobrescritos por leitura do GitHub
   if(!skipSync){
     document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:60px"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div>`;
     await loadAll();
   }
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile,'player-profile':()=>pgPlayerProfile(window._viewingPlayerId)};
   document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
   setTimeout(()=>initCharts(page),80);
 }
 
 async function reloadData(){
-  await loadAll(true); // força busca nova
+  await loadAll(true);
   const page = document.getElementById('tb-title').textContent.toLowerCase();
-  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports','meu perfil':'profile'};
-  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile};
+  const map = {'dashboard':'dashboard','rankings':'rankings','partidas':'matches','histórico':'history','calendário':'calendar','jogadores':'players','relatórios':'reports','meu perfil':'profile','perfil do jogador':'player-profile'};
+  const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile,'player-profile':()=>pgPlayerProfile(window._viewingPlayerId)};
   const key = map[page]||'dashboard';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
@@ -1357,7 +1335,7 @@ function pgPlayers(){
         <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Perfil</button>
         <button class="btn btn-danger" onclick="delPlayer(${p.id})"><i class="fas fa-trash"></i></button>
         `:`
-        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="goto('profile',null)"><i class="fas fa-user"></i> Ver Perfil</button>
+        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="viewPlayerProfile(${p.id})"><i class="fas fa-user"></i> Ver Perfil</button>
         `}
       </div>
     </div>`;
@@ -1540,7 +1518,7 @@ function initCharts(page){
     const dCtx=document.getElementById('dmgChart');
     if(dCtx&&pw.length)chartInstances.dmg=new Chart(dCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio',data:pw.map(p=>{const st=pStats(p.id);return+(st.dano/st.n).toFixed(0)}),backgroundColor:pw.map(p=>pStats(p.id).n>=40?'rgba(184,134,11,0.75)':'rgba(239,68,68,0.5)'),borderColor:pw.map(p=>pStats(p.id).n>=40?'#FFD700':'#EF4444'),borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:11}}}}}});
   }
-  if(page==='profile')initProfileCharts();
+  if(page==='profile'||page==='player-profile')initProfileCharts(window._viewingPlayerId||CURRENT_USER?.pid);
   if(page==='reports'&&MATCHES.length>0){
     const mfilt=document.getElementById('rp-ms')?.value||'';
     const pfilt=document.getElementById('rp-ps')?.value||'';
@@ -1571,12 +1549,10 @@ function avatarHtml(player, size=42, fontSize=14){
     +'background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));'
     +'border:1px solid rgba(255,215,0,0.35);';
   if(src){
-    // Sem onerror inline — imagem preenche o círculo, fallback via CSS se não carregar
     return '<div style="'+circleStyle+'">'
       +'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">'
       +'</div>';
   }
-  // Sem foto — iniciais centralizadas
   return '<div style="'+circleStyle+'display:flex;align-items:center;justify-content:center;">'
     +'<span style="font-family:Barlow Condensed,sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold);line-height:1;">'+initials+'</span>'
     +'</div>';
@@ -1805,19 +1781,142 @@ function pgProfile(){
 </div>`;
 }
 
+// ============================================================
+// PERFIL PÚBLICO DO JOGADOR
+// ============================================================
+function viewPlayerProfile(playerId){
+  window._viewingPlayerId = +playerId;
+  if(!isAdmin() && CURRENT_USER?.pid && +playerId === +CURRENT_USER.pid){
+    goto('profile', null);
+    return;
+  }
+  try{
+    localStorage.setItem('fv_current_page','player-profile');
+    localStorage.setItem('fv_viewing_player_id', String(playerId));
+  }catch(e){}
+  document.querySelectorAll('.ni').forEach(i=>i.classList.remove('active'));
+  document.getElementById('sidebar').classList.remove('open');
+  renderPage('player-profile');
+}
+
+function pgPlayerProfile(playerId){
+  if(!playerId) return '<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Jogador não especificado</h3><p>Selecione um jogador na lista.</p></div>';
+  const player = PLAYERS.find(p=>+p.id===+playerId);
+  if(!player) return '<div class="empty"><i class="fas fa-exclamation-triangle"></i><h3>Jogador não encontrado</h3></div>';
+  const pid = +playerId;
+  const stAll=pStats(pid), rkAll=calcRanking(MATCHES), rkW=calcRanking(getWeekFilter()), rkM=calcRanking(getMonthFilter());
+  const posG=rkAll.findIndex(p=>+p.id===pid)+1||'-', posS=rkW.findIndex(p=>+p.id===pid)+1||'-', posM=rkM.findIndex(p=>+p.id===pid)+1||'-';
+  const rkP=rkAll.find(p=>+p.id===pid), sc=rkP?.score??0, med=rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
+  const contrib=rkP?.contrib??{dano:0,salv:0,kills:0,sup:0}, ss=rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
+  const apt=stAll.n>=40, W=SCORE_WEIGHTS, scoreMax=W.dano+W.salvamentos+W.kills+W.suportes;
+  const scorePct=sc?(sc/scoreMax*100).toFixed(1):0;
+  const mapas=[...new Set(MATCHES.map(m=>m.mapa).filter(Boolean))];
+  const mapStats=mapas.map(mapa=>{const ms=MATCHES.filter(m=>m.mapa===mapa);const st=pStats(pid,ms);return{mapa,n:st.n,dano:st.n?+(st.dano/st.n).toFixed(0):0,kills:st.n?+(st.kills/st.n).toFixed(2):0,salv:st.n?+(st.salv/st.n).toFixed(2):0,sup:st.n?+(st.sup/st.n).toFixed(2):0};}).filter(m=>m.n>0).sort((a,b)=>b.n-a.n);
+  const bestMap=mapStats.reduce((best,m)=>{const s=m.dano*0.6+m.kills*0.25+m.salv*0.1+m.sup*0.05;const bs=best?(best.dano*0.6+best.kills*0.25+best.salv*0.1+best.sup*0.05):0;return s>bs?m:best;},null);
+  const conquistas=[
+    {icon:'🏆',label:'MVP da Semana',desc:'Maior score na semana',earned:posS===1},
+    {icon:'👑',label:'MVP do Mês',desc:'Maior score no mês',earned:posM===1},
+    {icon:'🥉',label:'Top 3 Geral',desc:'Top 3 no ranking geral',earned:typeof posG==='number'&&posG<=3},
+    {icon:'💥',label:'Maior Dano',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.medias.dano-a.medias.dano)[0]?.id===pid,desc:'Maior dano médio'},
+    {icon:'🔫',label:'Mais Kills',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.kills-a.st.kills)[0]?.id===pid,desc:'Top kills'},
+    {icon:'🚑',label:'Mais Salvamentos',earned:rkAll.length>0&&+rkAll.slice().sort((a,b)=>b.st.salv-a.st.salv)[0]?.id===pid,desc:'Top salvamentos'},
+  ];
+  const statusLabel={'ativo':'Ativo','reserva':'Reserva','inativo':'Inativo'}[player.player_status||'ativo']||'Ativo';
+  const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
+  return `
+<div class="pf-root" style="max-width:1100px;margin:0 auto;width:100%;box-sizing:border-box;overflow-x:hidden">
+  <div class="alert alert-info" style="margin-bottom:16px"><i class="fas fa-eye" style="margin-right:6px"></i>Perfil público de <b>${player.nick}</b>
+    <button class="btn btn-ghost" style="margin-left:12px;font-size:10px;padding:3px 10px" onclick="goto('players',null)"><i class="fas fa-arrow-left"></i> Voltar</button>
+  </div>
+  <div class="pf-header-card" style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;box-sizing:border-box">
+    <div class="pf-header-inner" style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+      ${profileAvatarHtml(player)}
+      <div class="pf-info" style="flex:1;min-width:180px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
+        ${player.full_name?`<div style="font-size:13px;color:var(--gray);margin-top:2px">${player.full_name}</div>`:''}
+        <div class="pf-info-badges" style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+          ${player.role_in_team?`<span style="background:rgba(255,215,0,0.1);color:var(--gold2);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.2);letter-spacing:0.1em;text-transform:uppercase">${player.role_in_team}</span>`:''}
+          <span style="background:${statusColor}18;color:${statusColor};padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid ${statusColor}44;letter-spacing:0.1em;text-transform:uppercase">${statusLabel}</span>
+          <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.25)">#${posG} Ranking</span>
+          <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:10px">${apt?'✓ APTO':'⚠ NÃO APTO'}</span>
+        </div>
+        ${player.bio?`<div style="font-size:12px;color:var(--gray);margin-top:6px;font-style:italic">"${player.bio}"</div>`:''}
+        <div style="margin-top:8px;font-size:13px;color:var(--gray)">
+          <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
+          <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+          <span style="color:${ss.color}">${ss.label}</span>
+          <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+          <span>${stAll.n} partida(s) de 40</span>
+        </div>
+      </div>
+      <div class="pf-ranking-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
+        <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${r.color}">#${r.pos}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Estatísticas Gerais</div></div>
+  <div class="pf-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:20px">
+    ${[{label:'Partidas',val:stAll.n,icon:'fa-crosshairs',color:'var(--gold)'},{label:'Dano Total',val:fmtNum(stAll.dano),icon:'fa-fire',color:'#FF6B35'},{label:'Kills',val:stAll.kills,icon:'fa-skull-crossbones',color:'#FFD700'},{label:'Salvamentos',val:stAll.salv,icon:'fa-medkit',color:'#00D084'},{label:'Suportes',val:stAll.sup,icon:'fa-hands-helping',color:'#00B8FF'}].map(s=>`
+    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
+      <i class="fas ${s.icon}" style="color:${s.color};font-size:18px;margin-bottom:8px;display:block"></i>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff">${s.val}</div>
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.1em;margin-top:3px">${s.label}</div>
+    </div>`).join('')}
+    ${[{label:'Dano/PT',val:stAll.n?fmtNum(med.dano):'—',color:'#FF6B35'},{label:'Kills/PT',val:stAll.n?med.kills.toFixed(2):'—',color:'#FFD700'},{label:'Salv/PT',val:stAll.n?med.salv.toFixed(2):'—',color:'#00D084'},{label:'Sup/PT',val:stAll.n?med.sup.toFixed(2):'—',color:'#00B8FF'}].map(s=>`
+    <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:14px;text-align:center">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:var(--gray);margin-bottom:6px">${s.label}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${s.color}">${s.val}</div>
+    </div>`).join('')}
+  </div>
+  <div class="sec-hdr">
+    <div class="sec-title"><div class="sec-title-line"></div>Evolução</div>
+    <div style="display:flex;gap:6px">
+      ${['7d','30d','all'].map(f=>`<button id="pf-${f}" class="btn btn-ghost" style="font-size:10px;padding:5px 10px;${_profileFilter===f?'border-color:var(--gold);color:var(--gold)':''}" onclick="setProfileFilter('${f}')">${f==='7d'?'7 Dias':f==='30d'?'30 Dias':'Tudo'}</button>`).join('')}
+    </div>
+  </div>
+  <div class="pf-charts-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:20px">
+    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Dano</div>
+      <div style="position:relative;height:120px"><canvas id="pfDmgChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Kills</div>
+      <div style="position:relative;height:120px"><canvas id="pfKillChart"></canvas></div>
+    </div>
+    <div class="chart-card" style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.07);padding:16px">
+      <div style="font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px">Score</div>
+      <div style="position:relative;height:120px"><canvas id="pfScoreChart"></canvas></div>
+    </div>
+  </div>
+  <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Conquistas</div></div>
+  <div class="pf-achievements-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px">
+    ${conquistas.map(c=>`
+    <div style="background:${c.earned?'rgba(255,215,0,0.08)':'#0d0d0d'};border:1px solid ${c.earned?'rgba(255,215,0,0.35)':'rgba(255,255,255,0.06)'};padding:14px;text-align:center;opacity:${c.earned?1:0.45}">
+      <div style="font-size:28px;margin-bottom:8px">${c.icon}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:${c.earned?'var(--gold)':'var(--gray)'}">${c.label}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">${c.desc}</div>
+      ${c.earned?'<div style="font-size:9px;color:var(--gold);margin-top:6px;text-transform:uppercase;letter-spacing:0.1em">✓ Conquistado</div>':''}
+    </div>`).join('')}
+  </div>
+</div>`;
+}
+
 function setProfileFilter(f){
   _profileFilter=f;
-  // Atualiza visual dos botões
   ['7d','30d','all'].forEach(x=>{
     const btn=document.getElementById('pf-'+x);
     if(btn){btn.style.borderColor=x===f?'var(--gold)':'';btn.style.color=x===f?'var(--gold)':'';}
   });
-  initProfileCharts();
+  initProfileCharts(window._viewingPlayerId||CURRENT_USER?.pid);
 }
 
-function initProfileCharts(){
-  if(!CURRENT_USER||isAdmin())return;
-  const pid=CURRENT_USER.pid;
+function initProfileCharts(overridePid){
+  const pid = overridePid || CURRENT_USER?.pid;
+  if(!pid) return;
 
   // Filtra partidas pelo período selecionado
   const now=new Date();
@@ -1908,22 +2007,76 @@ function showToast(msg, type='info', duration=4000){
 
 
 // ============================================================
-// FOTOS — salvas só no localStorage (não vão pro GitHub)
-// Isso evita estourar o limite de tamanho do db.json
+// FOTOS DE PARTIDA — upload real para GitHub (igual aos avatares)
+// Caminho: Dados/matches/{matchId}_{slot}.jpg
+// URL pública: https://raw.githubusercontent.com/{owner}/{repo}/main/Dados/matches/{id}_{slot}.jpg
 // ============================================================
-function savePhotoLocal(base64DataUrl, matchId, slot){
+
+async function compressMatchPhoto(dataUrl, maxSizeKB=400, quality=0.80){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const MAX_DIM = 1280;
+      let w=img.width, h=img.height;
+      if(w>MAX_DIM||h>MAX_DIM){
+        if(w>h){h=Math.round(h*MAX_DIM/w);w=MAX_DIM;}
+        else{w=Math.round(w*MAX_DIM/h);h=MAX_DIM;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      let q=quality;
+      let result=canvas.toDataURL('image/jpeg',q);
+      while(result.length>maxSizeKB*1366&&q>0.4){q-=0.05;result=canvas.toDataURL('image/jpeg',q);}
+      resolve(result);
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+
+async function ghUploadMatchPhoto(matchId, slot, dataUrl){
+  const path='Dados/matches/'+matchId+'_'+slot+'.jpg';
+  const publicUrl='https://raw.githubusercontent.com/'+GH_OWNER+'/'+GH_REPO+'/main/'+path+'?v='+Date.now();
+  const compressed=await compressMatchPhoto(dataUrl);
+  const base64Data=compressed.split(',')[1];
+  let existingSha=null;
   try{
-    localStorage.setItem('fv_photo_' + matchId + '_' + slot, base64DataUrl);
-  }catch(e){ console.warn('Foto não salva localmente (storage cheio?):', e.message); }
+    const check=await fetch(GH_API+'/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+path,{
+      headers:{'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json'}
+    });
+    if(check.ok){const j=await check.json();existingSha=j.sha;}
+  }catch(e){}
+  const body={message:'match photo '+matchId+' '+slot+' '+Date.now(),content:base64Data};
+  if(existingSha) body.sha=existingSha;
+  const r=await fetch(GH_API+'/repos/'+GH_OWNER+'/'+GH_REPO+'/contents/'+path,{
+    method:'PUT',
+    headers:{'Authorization':'token '+GH_TOKEN,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){const t=await r.text();throw new Error('Upload foto falhou: '+t);}
+  return publicUrl;
+}
+
+// Fallback: salva base64 no localStorage para uso imediato antes do GitHub confirmar
+function savePhotoLocal(base64DataUrl, matchId, slot){
+  try{ localStorage.setItem('fv_photo_'+matchId+'_'+slot, base64DataUrl); }
+  catch(e){ console.warn('Foto não salva localmente:', e.message); }
 }
 function getPhotoLocal(matchId, slot){
-  try{ return localStorage.getItem('fv_photo_' + matchId + '_' + slot); }
+  try{ return localStorage.getItem('fv_photo_'+matchId+'_'+slot); }
   catch(e){ return null; }
 }
-async function uploadPhoto(base64DataUrl, fileName){
-  // Retorna null — foto será salva no localStorage separadamente
-  return null;
+
+// Resolve URL final da foto: GitHub URL > localStorage > null
+function resolveMatchPhoto(url, matchId, slot){
+  if(!url && !matchId) return null;
+  // URL pública do GitHub (funciona em qualquer dispositivo)
+  if(url && url.startsWith('http')) return url;
+  // Fallback local (só funciona no dispositivo que salvou)
+  return getPhotoLocal(matchId, slot) || null;
 }
+
 let sRows=[], uPhotos={foto1:null,foto2:null};
 
 function markPhoto(slot, input){
@@ -2009,14 +2162,11 @@ async function lerPrints(){
   status.innerHTML='<span class="spinner"></span> Analisando prints com IA...';
 
   try {
-    const content = [];
-    content.push({
-      type: 'text',
-      text: `Analise estes prints do PUBG Mobile e extraia os dados de estatísticas.
+    const prompt = `Analise estes prints do PUBG Mobile e extraia os dados de estatísticas.
 
 JOGADORES CADASTRADOS NO TIME: ${PLAYERS.map(p=>p.nick).join(', ')}
 
-Retorne APENAS um JSON válido neste formato exato, sem texto antes ou depois:
+Retorne APENAS um JSON válido neste formato exato, sem texto antes ou depois, sem markdown, sem backticks:
 {
   "colocacao": 10,
   "mapa": "Miramar",
@@ -2033,48 +2183,58 @@ Regras:
 - kills: coluna "Abates"
 - salvamentos: coluna "Resgatar"
 - suportes: coluna "Assistências"
-- Se um campo não aparecer, use 0`
-    });
+- Se um campo não aparecer, use 0`;
 
+    // Monta parts para o Gemini (texto + imagens)
+    const parts = [{ text: prompt }];
     for(const slot of ['foto1','foto2']){
       if(!uPhotos[slot]) continue;
       const dataUrl = uPhotos[slot];
       const mimeMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-      const media_type = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      content.push({
-        type: 'image',
-        source: { type: 'base64', media_type, data: dataUrl.split(',')[1] }
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      parts.push({
+        inline_data: {
+          mime_type: mimeType,
+          data: dataUrl.split(',')[1]
+        }
       });
     }
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'x-api-key': window._ak || ''
-      },
-      body: JSON.stringify({
-        model: 'claude-opus-4-5',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content }]
-      })
-    });
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + window._gk,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts }] })
+      }
+    );
 
     const data = await resp.json();
-    if(data.error) throw new Error('Claude API: ' + (data.error.message||JSON.stringify(data.error)));
 
-    const text = data.content?.[0]?.text || '';
-    console.log('[Claude] Response:', text);
+    // Tratamento de erros da API Gemini
+    if(data.error){
+      const msg = data.error.message||JSON.stringify(data.error);
+      if(data.error.code===429){
+        throw new Error('⏳ Limite diário atingido. Tente novamente amanhã.');
+      }
+      // Mostra o erro real para diagnóstico
+      throw new Error('Gemini: ' + msg);
+    }
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Resposta inválida da IA: ' + text.substring(0,100));
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('[Gemini] Response:', text);
+
+    // Remove possíveis markdown code blocks que o Gemini às vezes adiciona
+    const clean = text.replace(/```json\n?/gi,'').replace(/```\n?/gi,'').trim();
+
+    const jsonMatch = clean.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('Resposta inválida da IA. Tente novamente.');
 
     const parsed = JSON.parse(jsonMatch[0]);
     if(!parsed.jogadores?.length) throw new Error('Nenhum jogador identificado nos prints.');
 
-    status.innerHTML = `<i class="fas fa-check-circle" style="color:var(--green)"></i> ${parsed.jogadores.length} jogador(es) encontrado(s)! Campos preenchidos.`;
+    status.innerHTML = '<i class="fas fa-check-circle" style="color:var(--green)"></i> '
+      + parsed.jogadores.length + ' jogador(es) encontrado(s)! Campos preenchidos.';
     status.style.color = 'var(--green)';
 
     if(parsed.mapa){
@@ -2100,8 +2260,11 @@ Regras:
 
   } catch(e){
     console.error('[lerPrints]', e);
-    status.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:var(--red)"></i> ' + e.message;
+    const isKnown = e.message.startsWith('⚠️') || e.message.startsWith('🔑') || e.message.startsWith('⏳');
+    status.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + e.message
+      + (isKnown ? '' : '<br><span style="font-size:10px;opacity:0.7">Use o preenchimento manual abaixo.</span>');
     status.style.color = 'var(--red)';
+    aiReading = false;
   }
 }
 let sRowCounter = 0;
@@ -2296,63 +2459,84 @@ async function saveMatch(){
       colocacao:+(el_c?.value)||1,
     });
   }
-
   if(!stats.length){alert('Erro ao ler dados dos jogadores. Tente novamente.');return}
 
-  // Gera ID único local
   const newId = Date.now();
+  const foto1data = uPhotos.foto1;
+  const foto2data = uPhotos.foto2;
 
-  // Salva fotos no localStorage (não vão pro GitHub)
-  if(uPhotos.foto1) savePhotoLocal(uPhotos.foto1, newId, 'foto1');
-  if(uPhotos.foto2) savePhotoLocal(uPhotos.foto2, newId, 'foto2');
-  const foto1_url = uPhotos.foto1 ? 'local:' + newId : null;
-  const foto2_url = uPhotos.foto2 ? 'local:' + newId : null;
+  // Salva preview local imediatamente (para exibir antes do GitHub confirmar)
+  if(foto1data) savePhotoLocal(foto1data, newId, 'foto1');
+  if(foto2data) savePhotoLocal(foto2data, newId, 'foto2');
 
   const newMatch = {
-    id: newId,
-    data, scrim: scrim||null, mapa,
-    foto1_url, foto2_url,
+    id: newId, data, scrim: scrim||null, mapa,
+    foto1_url: null, foto2_url: null,
     estatisticas: stats.map(s=>({...s, partida_id: newId}))
   };
   MATCHES = [newMatch, ...MATCHES];
   uPhotos={foto1:null,foto2:null};
   closeModal();
-  renderPage('matches', true); // skipSync=true — não rebusca GitHub, usa estado atual
-  showToast('Partida salva! Sincronizando...', 'info', 2500);
+  renderPage('matches', true);
+  showToast('Partida salva! Enviando fotos...', 'info', 3000);
 
-  // Persiste no GitHub + localStorage
-  try {
+  // Upload das fotos para GitHub em background
+  let savedFoto1=null, savedFoto2=null;
+  try{
+    if(foto1data){
+      showToast('⬆️ Enviando foto de colocação...','info',5000);
+      savedFoto1 = await ghUploadMatchPhoto(newId,'foto1',foto1data);
+      console.log('[saveMatch] foto1 enviada:',savedFoto1);
+    }
+    if(foto2data){
+      showToast('⬆️ Enviando foto de estatísticas...','info',5000);
+      savedFoto2 = await ghUploadMatchPhoto(newId,'foto2',foto2data);
+      console.log('[saveMatch] foto2 enviada:',savedFoto2);
+    }
+  }catch(e){
+    console.warn('[saveMatch] Upload foto falhou:',e.message);
+    showToast('⚠️ Fotos salvas localmente (sem acesso ao GitHub: '+e.message+')','warn',7000);
+  }
+
+  // Atualiza partida com URLs públicas
+  MATCHES = MATCHES.map(m=>{
+    if(+m.id!==+newId) return m;
+    return {...m, foto1_url: savedFoto1||m.foto1_url, foto2_url: savedFoto2||m.foto2_url};
+  });
+  saveCache();
+
+  try{
     await persistAll();
-    showToast('✅ Partida sincronizada com GitHub!', 'success');
-  } catch(e){
-    console.error('[saveMatch]', e);
-    showToast('❌ Erro ao salvar: ' + e.message, 'warn', 6000);
+    showToast('✅ Partida e fotos sincronizadas!','success');
+  }catch(e){
+    console.error('[saveMatch] persistAll falhou:',e);
+    showToast('❌ Erro ao sincronizar: '+e.message,'warn',6000);
   }
 }
 
 function modalViewMatch(id){
   const m=MATCHES.find(x=>+x.id===+id);
-  // Resolve URL da foto: se for 'local:ID', busca do localStorage
-  const resolvePhoto=(url,slot)=>{
-    if(!url) return null;
-    if(url.startsWith('local:')){ return getPhotoLocal(url.replace('local:',''), slot); }
-    return url;
-  };
-  const src1 = resolvePhoto(m.foto1_url,'foto1');
-  const src2 = resolvePhoto(m.foto2_url,'foto2');
+  if(!m){showToast('Partida não encontrada','warn');return;}
+  // Resolve URLs: GitHub URL (qualquer dispositivo) > localStorage (mesmo dispositivo)
+  const src1 = resolveMatchPhoto(m.foto1_url, m.id, 'foto1');
+  const src2 = resolveMatchPhoto(m.foto2_url, m.id, 'foto2');
   const fb=(src,lbl,icon)=>src
-    ?`<div style="cursor:pointer;border:1px solid var(--border);overflow:hidden" onclick="openFullPhoto('${src}','${lbl}')">
-       <img src="${src}" style="width:100%;height:120px;object-fit:cover;display:block">
+    ?`<div style="cursor:pointer;border:1px solid var(--border);overflow:hidden;border-radius:2px" onclick="openFullPhoto('${src}','${lbl}')">
+       <img src="${src}" style="width:100%;height:120px;object-fit:cover;display:block;" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:var(--gray);font-size:11px\\'><i class=\\'fas fa-image\\'></i><br>Foto não carregada</div>'">
        <p style="font-size:10px;color:var(--green);text-align:center;padding:5px;background:var(--bg2);letter-spacing:0.06em"><i class="fas fa-expand-alt"></i> ${lbl}</p></div>`
-    :`<div class="upload-zone"><i class="fas ${icon}"></i><p>${lbl}<br><span style="font-size:10px">Sem foto</span></p></div>`;
-  openModal(`Partida - ${m.data}`,`
+    :`<div class="upload-zone" style="cursor:default"><i class="fas ${icon}" style="opacity:0.3"></i><p style="color:var(--gray)">${lbl}<br><span style="font-size:10px">Sem foto</span></p></div>`;
+  openModal(`Partida — ${m.data}`,`
   <p><b style="font-family:'Barlow Condensed',sans-serif">MAPA:</b> <span class="badge badge-map map-${m.mapa}">${m.mapa}</span></p>
   <p style="margin-top:6px"><b style="font-family:'Barlow Condensed',sans-serif">SCRIM:</b> <span style="color:var(--gray)">${m.scrim||'-'}</span></p>
   <div style="margin-top:16px"><p style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Estatísticas</p>
   <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Jogador</th><th>Dano</th><th>Kills</th><th>Salv.</th><th>Sup.</th><th>Col.</th></tr></thead>
   <tbody>${(m.estatisticas||[]).map(s=>{const p=PLAYERS.find(x=>+x.id===+s.jogador_id);return`<tr><td><b>${p?p.nick:'?'}</b></td><td>${fmtNum(+s.dano)}</td><td>${s.kills}</td><td>${s.salvamentos}</td><td>${s.suportes}</td><td>${s.colocacao}</td></tr>`}).join('')}</tbody></table></div></div>
-  <div style="margin-top:20px"><p style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Evidências</p>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fb(src1,'Foto Colocação','fa-image')}${fb(src2,'Foto Estatísticas','fa-chart-bar')}</div></div>`);
+  <div style="margin-top:20px">
+    <p style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">
+      Evidências ${m.foto1_url||m.foto2_url?'<span style="font-size:10px;color:var(--green);font-family:Barlow,sans-serif;font-weight:400;text-transform:none;letter-spacing:0">✓ Disponíveis</span>':'<span style="font-size:10px;color:var(--gray);font-family:Barlow,sans-serif;font-weight:400;text-transform:none">Sem fotos cadastradas</span>'}
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${fb(src1,'Colocação','fa-trophy')}${fb(src2,'Estatísticas','fa-chart-bar')}</div>
+  </div>`);
 }
 function openFullPhoto(src,label){openModal(label,`<img src="${src}" style="width:100%;display:block;border-radius:2px">`)}
 // ── helper: executa em background sem travar a UI ──
@@ -2509,9 +2693,8 @@ function previewAvatar(input){
     window._pendingAvatar=src;
     const prev=document.getElementById('ep-avatar-preview');
     if(prev){
-      // Remove display:flex so image fills cleanly
       prev.style.display='block';
-      prev.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">`;
+      prev.innerHTML='<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">';
     }
   };
   reader.readAsDataURL(file);
@@ -2522,11 +2705,10 @@ function removeAvatar(){
   const prev=document.getElementById('ep-avatar-preview');
   if(prev){
     const nick=document.getElementById('ep-nick')?.value||'';
-    // Restore flex for initials display
     prev.style.display='flex';
     prev.style.alignItems='center';
     prev.style.justifyContent='center';
-    prev.innerHTML=`<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`;
+    prev.innerHTML='<span style="font-family:Barlow Condensed,sans-serif;font-size:24px;font-weight:900;color:var(--gold)">'+nick.replace('FV ','').slice(0,2).toUpperCase()+'</span>';
   }
 }
 
