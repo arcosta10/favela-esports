@@ -12,7 +12,7 @@
       "bio": "123",
       "social_links": "@fvluke",
       "admin_notes": "",
-      "avatar_url": ""
+      "avatar_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/avatars/1.jpg?v=1780655904097"
     },
     {
       "id": 3,
@@ -402,5 +402,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780655614021
+  "_nextId": 1780655868998
 }
