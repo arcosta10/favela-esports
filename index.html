@@ -2159,96 +2159,63 @@ async function lerPrints(){
   const status = document.getElementById('ai-status');
   status.style.display='block';
   status.style.color='var(--gray)';
-  status.innerHTML='<span class="spinner"></span> Analisando prints com IA...';
+  status.innerHTML='<span class="spinner"></span> Carregando leitor de texto...';
 
   try {
-    const prompt = `Analise estes prints do PUBG Mobile e extraia os dados de estatísticas.
-
-JOGADORES CADASTRADOS NO TIME: ${PLAYERS.map(p=>p.nick).join(', ')}
-
-Retorne APENAS um JSON válido neste formato exato, sem texto antes ou depois, sem markdown, sem backticks:
-{
-  "colocacao": 10,
-  "mapa": "Miramar",
-  "jogadores": [
-    {"nick": "FV Luke", "kills": 3, "dano": 456, "salvamentos": 0, "suportes": 2}
-  ]
-}
-
-Regras:
-- colocacao: número antes do "/" na tela de resultado (ex: 10º /20 = 10)
-- mapa: detecte pelo cenário (Erangel=verde, Miramar=deserto, Rondo=neve/urbano)
-- nick: use o nick mais próximo da lista de jogadores cadastrados acima
-- dano: coluna "Dano" (número inteiro)
-- kills: coluna "Abates"
-- salvamentos: coluna "Resgatar"
-- suportes: coluna "Assistências"
-- Se um campo não aparecer, use 0`;
-
-    // Monta parts para o Gemini (texto + imagens)
-    const parts = [{ text: prompt }];
-    for(const slot of ['foto1','foto2']){
-      if(!uPhotos[slot]) continue;
-      const dataUrl = uPhotos[slot];
-      const mimeMatch = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
-      parts.push({
-        inline_data: {
-          mime_type: mimeType,
-          data: dataUrl.split(',')[1]
-        }
+    // Carrega Tesseract.js dinamicamente se ainda não carregado
+    if(!window.Tesseract){
+      await new Promise((resolve, reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js';
+        s.onload=resolve; s.onerror=reject;
+        document.head.appendChild(s);
       });
     }
 
-    const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': window._gk
-        },
-        body: JSON.stringify({ contents: [{ parts }] })
-      }
-    );
+    status.innerHTML='<span class="spinner"></span> Lendo textos dos prints (pode levar ~20s)...';
 
-    const data = await resp.json();
-
-    if(data.error){
-      const msg = data.error.message||'';
-      if(resp.status===429) throw new Error('⏳ Limite atingido. Tente novamente em alguns segundos.');
-      if(resp.status===401||resp.status===403) throw new Error('🔑 Chave de API inválida ou sem permissão.');
-      throw new Error('Erro da API: ' + msg);
+    // Lê o texto das imagens com OCR
+    let textoCompleto = '';
+    for(const slot of ['foto1','foto2']){
+      if(!uPhotos[slot]) continue;
+      status.innerHTML='<span class="spinner"></span> Lendo print '+( slot==='foto1'?'1':'2')+'...';
+      const result = await Tesseract.recognize(uPhotos[slot], 'por+eng', {
+        logger: ()=>{}
+      });
+      textoCompleto += '\n' + result.data.text;
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('[Gemini] Response:', text);
+    console.log('[OCR] Texto extraído:', textoCompleto);
+    status.innerHTML='<span class="spinner"></span> Identificando jogadores...';
 
-    // Remove possíveis markdown code blocks que o Gemini às vezes adiciona
-    const clean = text.replace(/```json\n?/gi,'').replace(/```\n?/gi,'').trim();
+    // Processa o texto para extrair dados
+    const parsed = parsePUBGText(textoCompleto);
 
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if(!jsonMatch) throw new Error('Resposta inválida da IA. Tente novamente.');
+    if(!parsed.jogadores?.length){
+      // Mesmo sem jogadores identificados, cria linhas para cada jogador do time
+      status.innerHTML='<i class="fas fa-exclamation-triangle" style="color:var(--gold)"></i> Texto lido mas jogadores não identificados. Preencha manualmente.';
+      status.style.color='var(--gold)';
+      return;
+    }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    if(!parsed.jogadores?.length) throw new Error('Nenhum jogador identificado nos prints.');
+    status.innerHTML='<i class="fas fa-check-circle" style="color:var(--green)"></i> '
+      + parsed.jogadores.length + ' jogador(es) identificado(s)! Campos preenchidos.';
+    status.style.color='var(--green)';
 
-    status.innerHTML = '<i class="fas fa-check-circle" style="color:var(--green)"></i> '
-      + parsed.jogadores.length + ' jogador(es) encontrado(s)! Campos preenchidos.';
-    status.style.color = 'var(--green)';
-
+    // Preenche mapa se detectado
     if(parsed.mapa){
-      const ms = document.getElementById('m-mapa');
-      if(ms && ['Erangel','Miramar','Rondo'].includes(parsed.mapa)) ms.value = parsed.mapa;
+      const ms=document.getElementById('m-mapa');
+      if(ms && ['Erangel','Miramar','Rondo'].includes(parsed.mapa)) ms.value=parsed.mapa;
     }
 
-    sRows.forEach(rid => document.getElementById('sr-'+rid)?.remove());
-    sRows = [];
+    // Remove linhas antigas e preenche com os dados
+    sRows.forEach(rid=>document.getElementById('sr-'+rid)?.remove());
+    sRows=[];
 
-    parsed.jogadores.forEach(j => {
-      const player = matchPlayer(j.nick);
+    parsed.jogadores.forEach(j=>{
+      const player=matchPlayer(j.nick);
       addSRow();
-      const rid = sRows[sRows.length-1];
+      const rid=sRows[sRows.length-1];
       if(player){ const sel=document.getElementById('sp-'+rid); if(sel) sel.value=player.id; }
       const s=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||0;};
       s('sd-'+rid, j.dano);
@@ -2260,11 +2227,9 @@ Regras:
 
   } catch(e){
     console.error('[lerPrints]', e);
-    const isKnown = e.message.startsWith('⚠️') || e.message.startsWith('🔑') || e.message.startsWith('⏳');
-    status.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + e.message
-      + (isKnown ? '' : '<br><span style="font-size:10px;opacity:0.7">Use o preenchimento manual abaixo.</span>');
-    status.style.color = 'var(--red)';
-    aiReading = false;
+    status.innerHTML='<i class="fas fa-exclamation-triangle"></i> Erro ao ler prints: '+e.message
+      +'<br><span style="font-size:10px;opacity:0.7">Use o preenchimento manual abaixo.</span>';
+    status.style.color='var(--red)';
   }
 }
 let sRowCounter = 0;
