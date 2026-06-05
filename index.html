@@ -1047,11 +1047,23 @@ function pgPlayers(){
     const posG = posIn(rkGeral,   p.id);
     const posS = posIn(rkSemanal, p.id);
     const posM = posIn(rkMensal,  p.id);
+    const avatarSrc=p.avatar_url||(()=>{try{return localStorage.getItem('fv_avatar_'+p.id)||'';}catch(e){return '';}})();
+    const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[p.player_status||'ativo']||'#888';
     return`<div class="pcard" style="--pc-color:${apt?'var(--green)':'var(--red)'}">
-      <!-- Cabeçalho -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
-        <div class="pcard-nick" style="${apt?'color:var(--green)':'color:#ffffff'}">${p.nick}</div>
-        <span class="badge ${apt?'badge-apto':'badge-napto'}">${apt?'APTO':'N.APTO'}</span>
+      <!-- Cabeçalho com avatar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+          ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover">`:
+          `<span style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:900;color:var(--gold)">${p.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="pcard-nick" style="${apt?'color:var(--green)':'color:#ffffff'};font-size:14px">${p.nick}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
+            ${p.role_in_team?`<span style="font-size:9px;color:var(--gold2);text-transform:uppercase;letter-spacing:0.1em">${p.role_in_team}</span><span style="color:rgba(255,255,255,0.15);font-size:9px">|</span>`:''}
+            <span style="font-size:9px;color:${statusColor};text-transform:uppercase;letter-spacing:0.1em">${(p.player_status||'ativo')}</span>
+          </div>
+        </div>
+        <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:8px">${apt?'APTO':'N.APTO'}</span>
       </div>
 
       <!-- Score grande -->
@@ -1136,10 +1148,14 @@ function pgPlayers(){
       <div class="pbar"><div class="pfill ${apt?'full':''}" style="width:${pct}%"></div></div>
 
       <!-- Ações -->
-      ${isAdmin()?`<div style="display:flex;gap:6px;margin-top:12px">
-        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Editar</button>
+      <div style="display:flex;gap:6px;margin-top:12px">
+        ${isAdmin()?`
+        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="modalEditPlayer(${p.id},'${p.nick}')"><i class="fas fa-edit"></i> Perfil</button>
         <button class="btn btn-danger" onclick="delPlayer(${p.id})"><i class="fas fa-trash"></i></button>
-      </div>`:``}
+        `:`
+        <button class="btn btn-ghost" style="flex:1;font-size:10px" onclick="goto('profile',null)"><i class="fas fa-user"></i> Ver Perfil</button>
+        `}
+      </div>
     </div>`;
   }).join('')}</div>`;
 }
@@ -1391,32 +1407,45 @@ function pgProfile(){
 <div style="max-width:1100px;margin:0 auto">
 
   <!-- ── CABEÇALHO ── -->
-  <div style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
-    <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;color:var(--gold);flex-shrink:0">
-      ${player.nick.replace('FV ','').slice(0,2).toUpperCase()}
-    </div>
-    <div style="flex:1;min-width:200px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
-        <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:3px 10px;font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.3)">#${posG} Ranking Geral</span>
-        <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:11px">${apt?'✓ APTO PARA PREMIAÇÃO':'⚠ NÃO APTO'}</span>
+  ${(()=>{
+    const avatarSrc=player.avatar_url||(()=>{try{return localStorage.getItem('fv_avatar_'+pid)||'';}catch(e){return '';}})();
+    const statusLabel={'ativo':'Ativo','reserva':'Reserva','inativo':'Inativo'}[player.player_status||'ativo']||'Ativo';
+    const statusColor={'ativo':'#00D084','reserva':'#FF6B35','inativo':'#888'}[player.player_status||'ativo']||'#00D084';
+    return`<div style="background:linear-gradient(135deg,#0d0d0d,#111);border:1px solid rgba(255,215,0,0.2);border-radius:3px;padding:24px;margin-bottom:20px">
+      <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap">
+        <div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+          ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover">`:
+          `<span style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:900;color:var(--gold)">${player.nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.05em">${player.nick}</div>
+          ${player.full_name?`<div style="font-size:13px;color:var(--gray);margin-top:2px">${player.full_name}</div>`:''}
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+            ${player.role_in_team?`<span style="background:rgba(255,215,0,0.1);color:var(--gold2);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.2);letter-spacing:0.1em;text-transform:uppercase">${player.role_in_team}</span>`:''}
+            <span style="background:${statusColor}18;color:${statusColor};padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid ${statusColor}44;letter-spacing:0.1em;text-transform:uppercase">${statusLabel}</span>
+            <span style="background:rgba(255,215,0,0.12);color:var(--gold);padding:2px 8px;font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid rgba(255,215,0,0.25)">#${posG} Ranking</span>
+            <span class="badge ${apt?'badge-apto':'badge-napto'}" style="font-size:10px">${apt?'✓ APTO':'⚠ NÃO APTO'}</span>
+          </div>
+          ${player.joined_at?`<div style="font-size:11px;color:var(--gray);margin-top:6px"><i class="fas fa-calendar-alt" style="margin-right:4px;color:var(--dim)"></i>No time desde ${new Date(player.joined_at+'T00:00:00').toLocaleDateString('pt-BR')}</div>`:''}
+          ${player.bio?`<div style="font-size:12px;color:var(--gray);margin-top:6px;font-style:italic">"${player.bio}"</div>`:''}
+          ${player.social_links?`<div style="font-size:11px;color:var(--gold2);margin-top:4px"><i class="fas fa-share-alt" style="margin-right:4px"></i>${player.social_links}</div>`:''}
+          <div style="margin-top:8px;font-size:13px;color:var(--gray)">
+            <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
+            <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+            <span style="color:${ss.color}">${ss.label}</span>
+            <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
+            <span>${stAll.n} partida(s) de 40</span>
+          </div>
+        </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
+        <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${r.color}">#${r.pos}</div>
+        </div>`).join('')}
       </div>
-      <div style="margin-top:8px;font-size:13px;color:var(--gray)">
-        <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
-        <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
-        <span style="color:${ss.color}">${ss.label}</span>
-        <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
-        <span>${stAll.n} partida(s) de 40</span>
-      </div>
-    </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      ${[{label:'Geral',pos:posG,color:'var(--gold)'},{label:'Semana',pos:posS,color:'#00B8FF'},{label:'Mês',pos:posM,color:'#8A5CFF'}].map(r=>`
-      <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:12px 16px;text-align:center;min-width:70px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gray);margin-bottom:4px">${r.label}</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${r.color}">#${r.pos}</div>
-      </div>`).join('')}
-    </div>
-  </div>
+    </div>`;
+  })()}
 
   <!-- ── ESTATÍSTICAS GERAIS ── -->
   <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Estatísticas Gerais</div></div>
@@ -2127,24 +2156,141 @@ function confirmDelMatch(id){
 // ============================================================
 function modalAddPlayer(){
   if(!isAdmin()){alert('Sem permissão.');return;}
-  openModal('Novo Jogador',`<div class="fg"><label>Nickname *</label><input type="text" class="finput" id="p-nick" placeholder="Ex: FV Jogador"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePlayer()"><i class="fas fa-save"></i> Salvar</button>`)}
+  openModal('Novo Jogador',`
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="fg" style="grid-column:1/-1"><label>Nickname *</label><input type="text" class="finput" id="p-nick" placeholder="Ex: FV Jogador"></div>
+    <div class="fg"><label>Nome Completo</label><input type="text" class="finput" id="p-fullname" placeholder="Nome real (opcional)"></div>
+    <div class="fg"><label>Função no Time</label>
+      <select class="fselect" id="p-role">
+        <option value="">Selecione...</option>
+        <option value="IGL">IGL</option>
+        <option value="Fragger">Fragger</option>
+        <option value="Support">Support</option>
+        <option value="Sniper">Sniper</option>
+        <option value="Coach">Coach</option>
+        <option value="Manager">Manager</option>
+        <option value="Player">Player</option>
+      </select>
+    </div>
+    <div class="fg"><label>Data de Entrada</label><input type="date" class="finput" id="p-joined" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="fg"><label>Status</label>
+      <select class="fselect" id="p-status">
+        <option value="ativo">Ativo</option>
+        <option value="reserva">Reserva</option>
+        <option value="inativo">Inativo</option>
+      </select>
+    </div>
+    <div class="fg" style="grid-column:1/-1"><label>Bio / Descrição</label><input type="text" class="finput" id="p-bio" placeholder="Breve descrição do jogador..."></div>
+    <div class="fg" style="grid-column:1/-1"><label>Redes Sociais</label><input type="text" class="finput" id="p-social" placeholder="Ex: @nickname (opcional)"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Observações Internas (apenas admin)</label><input type="text" class="finput" id="p-notes" placeholder="Notas privadas..."></div>
+  </div>`,
+  `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePlayer()"><i class="fas fa-save"></i> Salvar</button>`)}
 function savePlayer(){
   const nick=document.getElementById('p-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
   const tempId = Date.now();
-  PLAYERS.push({id:tempId, nick, ativo:true});
+  PLAYERS.push({
+    id:tempId, nick, ativo:true,
+    full_name: document.getElementById('p-fullname')?.value.trim()||'',
+    role_in_team: document.getElementById('p-role')?.value||'',
+    joined_at: document.getElementById('p-joined')?.value||'',
+    player_status: document.getElementById('p-status')?.value||'ativo',
+    bio: document.getElementById('p-bio')?.value.trim()||'',
+    social_links: document.getElementById('p-social')?.value.trim()||'',
+    admin_notes: document.getElementById('p-notes')?.value.trim()||'',
+    avatar_url: window._pendingAvatar||''
+  });
+  window._pendingAvatar=null;
   saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
 }
 function modalEditPlayer(id,nick){
   if(!isAdmin()){alert('Sem permissão.');return;}
-  openModal('Editar Jogador',`<div class="fg"><label>Nickname</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>`,`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})">Salvar</button>`)}
+  const p=PLAYERS.find(x=>+x.id===+id)||{};
+  window._pendingAvatar=null;
+  const roleOpts=['','IGL','Fragger','Support','Sniper','Coach','Manager','Player'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
+  const statusOpts=['ativo','reserva','inativo'].map(s=>`<option value="${s}" ${(p.player_status||'ativo')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
+  const avatarSrc=p.avatar_url||'';
+  openModal(`Editar Perfil — ${nick}`,`
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;margin-bottom:12px;align-items:start">
+    <div>
+      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:2px solid rgba(255,215,0,0.35);display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px" id="ep-avatar-preview">
+        ${avatarSrc?`<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover">`:
+        `<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`}
+      </div>
+      <input type="file" id="ep-avatar-file" accept="image/jpg,image/jpeg,image/png,image/webp" style="display:none" onchange="previewAvatar(this)">
+      <button class="btn btn-ghost" style="font-size:9px;width:80px;padding:4px" onclick="document.getElementById('ep-avatar-file').click()"><i class="fas fa-camera"></i> Foto</button>
+      ${avatarSrc?`<button class="btn btn-ghost" style="font-size:9px;width:80px;padding:4px;margin-top:4px;color:var(--red)" onclick="removeAvatar()"><i class="fas fa-times"></i> Remover</button>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="grid-column:1/-1"><label>Nickname *</label><input type="text" class="finput" id="ep-nick" value="${nick}"></div>
+      <div class="fg"><label>Nome Completo</label><input type="text" class="finput" id="ep-fullname" value="${p.full_name||''}" placeholder="Nome real (opcional)"></div>
+      <div class="fg"><label>Função no Time</label><select class="fselect" id="ep-role">${roleOpts}</select></div>
+      <div class="fg"><label>Data de Entrada</label><input type="date" class="finput" id="ep-joined" value="${p.joined_at||''}"></div>
+      <div class="fg"><label>Status</label><select class="fselect" id="ep-status">${statusOpts}</select></div>
+    </div>
+  </div>
+  <div class="fg"><label>Bio / Descrição</label><input type="text" class="finput" id="ep-bio" value="${(p.bio||'').replace(/"/g,'&quot;')}" placeholder="Breve descrição..."></div>
+  <div class="fg"><label>Redes Sociais</label><input type="text" class="finput" id="ep-social" value="${p.social_links||''}" placeholder="@nickname (opcional)"></div>
+  <div class="fg"><label><i class="fas fa-lock" style="color:var(--gold);margin-right:4px"></i>Observações Internas (apenas admin)</label><input type="text" class="finput" id="ep-notes" value="${(p.admin_notes||'').replace(/"/g,'&quot;')}" placeholder="Notas privadas..."></div>`,
+  `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="updPlayer(${id})"><i class="fas fa-save"></i> Salvar Perfil</button>`)
+}
+
+function previewAvatar(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];
+  if(file.size>3*1024*1024){alert('Arquivo muito grande. Máximo 3MB.');input.value='';return;}
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const src=ev.target.result;
+    window._pendingAvatar=src;
+    const prev=document.getElementById('ep-avatar-preview');
+    if(prev) prev.innerHTML=`<img src="${src}" style="width:100%;height:100%;object-fit:cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAvatar(){
+  window._pendingAvatar='__remove__';
+  const prev=document.getElementById('ep-avatar-preview');
+  if(prev){
+    const nick=document.getElementById('ep-nick')?.value||'';
+    prev.innerHTML=`<span style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--gold)">${nick.replace('FV ','').slice(0,2).toUpperCase()}</span>`;
+  }
+}
+
 function updPlayer(id){
+  if(!isAdmin()){alert('Sem permissão.');return;}
   const nick=document.getElementById('ep-nick').value.trim();
   if(!nick){alert('Informe o nickname.');return}
-  PLAYERS = PLAYERS.map(p=>+p.id===+id?{...p,nick}:p);
+  const avatarUpdate = window._pendingAvatar==='__remove__' ? '' : (window._pendingAvatar||undefined);
+  PLAYERS = PLAYERS.map(p=>{
+    if(+p.id!==+id) return p;
+    const updated = {
+      ...p, nick,
+      full_name: document.getElementById('ep-fullname')?.value.trim()||p.full_name||'',
+      role_in_team: document.getElementById('ep-role')?.value||p.role_in_team||'',
+      joined_at: document.getElementById('ep-joined')?.value||p.joined_at||'',
+      player_status: document.getElementById('ep-status')?.value||p.player_status||'ativo',
+      bio: document.getElementById('ep-bio')?.value.trim()||p.bio||'',
+      social_links: document.getElementById('ep-social')?.value.trim()||p.social_links||'',
+      admin_notes: document.getElementById('ep-notes')?.value.trim()||p.admin_notes||'',
+    };
+    if(avatarUpdate!==undefined) updated.avatar_url=avatarUpdate;
+    return updated;
+  });
+  window._pendingAvatar=null;
+  // Salva avatar no localStorage separado (evita peso no db.json)
+  const pid=id;
+  if(avatarUpdate!==undefined){
+    try{
+      if(avatarUpdate) localStorage.setItem('fv_avatar_'+pid, avatarUpdate);
+      else localStorage.removeItem('fv_avatar_'+pid);
+    }catch(e){}
+  }
   saveCache(); closeModal(); renderPage('players', true);
   syncBg(()=>persistAll());
+  showToast('✅ Perfil atualizado!', 'success');
 }
 function delPlayer(id){
   if(!isAdmin()){alert('Sem permissão.');return;}
