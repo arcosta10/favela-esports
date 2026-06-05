@@ -206,6 +206,34 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:2px;background
 .tp-num.gold{color:var(--gold)}
 .tp-nick{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em}
 .tp-info{font-size:12px;color:var(--gray);margin-top:2px;letter-spacing:0.03em}
+
+/* TOP 3 MOBILE — cards horizontais em linha */
+@media(max-width:768px){
+  /* Grid vira coluna única: Top3 acima, gráfico abaixo */
+  .dash-top3-grid{display:flex!important;flex-direction:column!important;gap:12px!important}
+  .top3-col,.chart-col{width:100%}
+
+  /* Top3: 3 cards lado a lado em linha */
+  .top3-list{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tp-card{flex-direction:column;align-items:center;text-align:center;padding:10px 6px;gap:3px;margin-bottom:0;border-radius:2px}
+
+  /* Tipografia compacta */
+  .tp-num{font-size:0;line-height:0;margin:0;padding:0} /* esconde número, usa medalha */
+  .tp-medal{font-size:22px;line-height:1;display:block}
+  .tp-nick{font-size:13px;font-weight:800;letter-spacing:0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .tp-info{display:none} /* esconde linha longa, usa score-big */
+  .tp-score-big{display:block;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:900;color:var(--gold);line-height:1.1}
+  .tp-card .badge{font-size:8px;padding:2px 5px;margin-top:2px}
+
+  /* Gráfico ocupa largura total */
+  .chart-col .chart-card{margin:0;padding:12px}
+  .chart-col .chart-card > div{height:170px!important}
+}
+@media(min-width:769px){
+  .top3-list{display:block}
+  .tp-medal{display:none}
+  .tp-score-big{display:none}
+}
 .chart-card{background:#0d0d0d;border:1px solid rgba(255,215,0,0.12);padding:20px;margin-bottom:20px}
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .sec-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;display:flex;align-items:center;gap:10px}
@@ -830,18 +858,25 @@ function pgDashboard(){
     <div class="sc" style="--sc-color:var(--cyan)"><div class="sc-label">Próximo Evento</div><div class="sc-val" style="font-size:${proxEv?'14px':'30px'};color:var(--cyan)">${proxEv?proxEv.titulo:'-'}</div><div class="sc-sub">${proxEv?proxEv.data:'Sem eventos'}</div><i class="fas fa-calendar sc-ico"></i></div>
   </div>
   ${total===0?`<div class="empty"><i class="fas fa-crosshairs"></i><h3>Sem partidas ainda</h3><p>Acesse Partidas e comece a registrar.</p></div>`:`
-  <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:16px;margin-bottom:20px">
-    <div>
+  <div class="dash-top3-grid" style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:16px;margin-bottom:20px">
+    <div class="top3-col">
       <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Top 3 Jogadores</div></div>
-      ${rk.filter(p=>p.st.n>0).slice(0,3).map((p,i)=>`
-      <div class="tp-card">
-        <div class="tp-num ${i===0?'gold':''}">${String(i+1).padStart(2,'0')}</div>
-        <div style="flex:1"><div class="tp-nick">${p.nick}</div>
-        <div class="tp-info">Score ${p.score} | Dano ${fmtNum(p.medias?.dano??0)}/pt | Kills ${(p.medias?.kills??0).toFixed(1)}</div>
-        <span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}" style="margin-top:5px;display:inline-flex">${p.st.n>=40?'APTO':'NÃO APTO'}</span></div>
-      </div>`).join('')}
+      <div class="top3-list">
+      ${rk.filter(p=>p.st.n>0).slice(0,3).map((p,i)=>{
+        const medals=['🥇','🥈','🥉'];
+        return`<div class="tp-card">
+          <div class="tp-medal">${medals[i]}</div>
+          <div class="tp-num ${i===0?'gold':''}">${String(i+1).padStart(2,'0')}</div>
+          <div style="flex:1;min-width:0">
+            <div class="tp-nick">${p.nick}</div>
+            <div class="tp-score-big">${p.score}</div>
+            <div class="tp-info">Score ${p.score} | Dano ${fmtNum(p.medias?.dano??0)}/pt | Kills ${(p.medias?.kills??0).toFixed(1)}</div>
+            <span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}" style="margin-top:5px;display:inline-flex">${p.st.n>=40?'APTO':'NÃO APTO'}</span>
+          </div>
+        </div>`;}).join('')}
+      </div>
     </div>
-    <div>
+    <div class="chart-col">
       <div class="sec-hdr"><div class="sec-title"><div class="sec-title-line"></div>Mapas</div></div>
       <div class="chart-card" style="margin:0"><div style="position:relative;height:190px"><canvas id="mapChart"></canvas></div></div>
     </div>
