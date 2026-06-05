@@ -1566,23 +1566,38 @@ function getAvatarSrc(player){
 function avatarHtml(player, size=42, fontSize=14){
   const src = getAvatarSrc(player);
   const initials = (player.nick||'??').replace('FV ','').slice(0,2).toUpperCase();
-  const base = 'width:'+size+'px;height:'+size+'px;min-width:'+size+'px;min-height:'+size+'px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.35);';
+  const circleStyle = 'width:'+size+'px;height:'+size+'px;min-width:'+size+'px;min-height:'+size+'px;'
+    +'border-radius:50%;overflow:hidden;flex-shrink:0;'
+    +'background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0));'
+    +'border:1px solid rgba(255,215,0,0.35);';
   if(src){
-    const errHtml = '<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center\\'><span style=\\'font-family:Barlow Condensed,sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold)\\'>'+initials+'</span></div>';
-    return '<div style="'+base+'"><img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.parentElement.innerHTML=\''+errHtml+'\'"></div>';
+    // Sem onerror inline — imagem preenche o círculo, fallback via CSS se não carregar
+    return '<div style="'+circleStyle+'">'
+      +'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">'
+      +'</div>';
   }
-  return '<div style="'+base+'display:flex;align-items:center;justify-content:center;"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold);line-height:1">'+initials+'</span></div>';
+  // Sem foto — iniciais centralizadas
+  return '<div style="'+circleStyle+'display:flex;align-items:center;justify-content:center;">'
+    +'<span style="font-family:Barlow Condensed,sans-serif;font-size:'+fontSize+'px;font-weight:900;color:var(--gold);line-height:1;">'+initials+'</span>'
+    +'</div>';
 }
 
-// Avatar grande para cabeçalho de perfil (90px, sem display:flex quando tem imagem)
+// Avatar grande para cabeçalho de perfil (90px)
 function profileAvatarHtml(player){
   const src = getAvatarSrc(player);
   const initials = (player.nick||'??').replace('FV ','').slice(0,2).toUpperCase();
-  const wrapStyle = 'width:90px;height:90px;min-width:90px;min-height:90px;border-radius:50%;overflow:hidden;flex-shrink:0;background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));border:2px solid rgba(255,215,0,0.4);';
+  const wrapStyle = 'width:90px;height:90px;min-width:90px;min-height:90px;'
+    +'border-radius:50%;overflow:hidden;flex-shrink:0;'
+    +'background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.05));'
+    +'border:2px solid rgba(255,215,0,0.4);';
   if(src){
-    return '<div class="pf-avatar" style="'+wrapStyle+'"><img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;" onerror="this.parentElement.style.cssText+=\'display:flex;align-items:center;justify-content:center\';this.remove();this.parentElement.innerHTML=\'<span style=\\\"font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold)\\\">'+initials+'</span>\'"></div>';
+    return '<div class="pf-avatar" style="'+wrapStyle+'">'
+      +'<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">'
+      +'</div>';
   }
-  return '<div class="pf-avatar" style="'+wrapStyle+'display:flex;align-items:center;justify-content:center;"><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:34px;font-weight:900;color:var(--gold);line-height:1">'+initials+'</span></div>';
+  return '<div class="pf-avatar" style="'+wrapStyle+'display:flex;align-items:center;justify-content:center;">'
+    +'<span style="font-family:Barlow Condensed,sans-serif;font-size:34px;font-weight:900;color:var(--gold);line-height:1;">'+initials+'</span>'
+    +'</div>';
 }
 
 // ============================================================
