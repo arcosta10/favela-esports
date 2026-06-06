@@ -86,6 +86,52 @@
   ],
   "partidas": [
     {
+      "id": 1780779558743,
+      "data": "2026-06-06",
+      "scrim": "Semi Final",
+      "mapa": "Erangel",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780779558743_foto1.jpg?v=1780779558747",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780779558743_foto2.jpg?v=1780779560506",
+      "estatisticas": [
+        {
+          "jogador_id": 1,
+          "dano": 100,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 17,
+          "partida_id": 1780779558743
+        },
+        {
+          "jogador_id": 1780614933459,
+          "dano": 113,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 17,
+          "partida_id": 1780779558743
+        },
+        {
+          "jogador_id": 6,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 17,
+          "partida_id": 1780779558743
+        },
+        {
+          "jogador_id": 8,
+          "dano": 144,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 17,
+          "partida_id": 1780779558743
+        }
+      ]
+    },
+    {
       "id": 1780779434474,
       "data": "2026-06-06",
       "scrim": null,
