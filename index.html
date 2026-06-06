@@ -458,7 +458,7 @@ const GH_FILE  = 'Dados/db.json';
 const GH_TOKEN = ['ghp_zhDGUaKkA9e7n5uWl4PV', 'qYfWhfda381sjXIL'].join('');
 
 // Gemini API — Google AI Studio (1500 req/dia grátis)
-window._gk = 'AQ.Ab8RN6L46BRNFF6ugUUl1CuVZlESh6kVo3kTVlHrDhpYIrDpIQ';
+window._gk = 'AIzaSyCJHLKVYrubkfw7uL83aqaWojU37jHF8fo';
 const GH_API   = 'https://api.github.com';
 
 let _ghSha = null; // SHA do arquivo atual no GitHub (necessário para update)
@@ -2245,10 +2245,10 @@ Regras:
     }
 
     const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + window._gk,
       {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'x-goog-api-key': window._gk },
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ contents:[{ parts }] })
       }
     );
