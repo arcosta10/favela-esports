@@ -458,7 +458,7 @@ const GH_FILE  = 'Dados/db.json';
 const GH_TOKEN = ['ghp_zhDGUaKkA9e7n5uWl4PV', 'qYfWhfda381sjXIL'].join('');
 
 // Gemini API — Google AI Studio (1500 req/dia grátis)
-window._gk = 'AQ.Ab8RN6LzmOM2pw1mNZeSNA_HCj3oT6ZBIjgh1PE921-Lqr9KKw';
+window._gk = 'AQ.Ab8RN6L46BRNFF6ugUUl1CuVZlESh6kVo3kTVlHrDhpYIrDpIQ';
 const GH_API   = 'https://api.github.com';
 
 let _ghSha = null; // SHA do arquivo atual no GitHub (necessário para update)
@@ -1205,7 +1205,9 @@ function pgMatches(){
     <td>${m.foto1_url||m.foto2_url?`<span style="color:var(--green);font-size:12px"><i class="fas fa-check-circle"></i> ${[m.foto1_url?'Coloc.':'',m.foto2_url?'Stats':''].filter(Boolean).join(' + ')}</span>`:`<span style="color:var(--gray);font-size:12px">Sem fotos</span>`}</td>
     <td style="display:flex;gap:6px">
       <button class="btn btn-icon" onclick="modalViewMatch(${m.id})"><i class="fas fa-eye"></i></button>
-      ${isAdmin()?`<button class="btn btn-danger" onclick="delMatch(${m.id})"><i class="fas fa-trash"></i></button>`:''}
+      ${isAdmin()?`
+      <button class="btn btn-icon" style="color:var(--gold);border-color:rgba(255,215,0,0.3)" onclick="modalEditMatch(${m.id})"><i class="fas fa-edit"></i></button>
+      <button class="btn btn-danger" onclick="delMatch(${m.id})"><i class="fas fa-trash"></i></button>`:''}
     </td></tr>`).join('')}
   </tbody></table></div></div>`}`;
 }
@@ -2402,6 +2404,140 @@ function saveCache(){
   localStorage.setItem('fv_players',JSON.stringify(PLAYERS));
   localStorage.setItem('fv_matches',JSON.stringify(MATCHES));
   localStorage.setItem('fv_events', JSON.stringify(EVENTS));
+}
+
+function modalEditMatch(id){
+  const m = MATCHES.find(x=>+x.id===+id);
+  if(!m){ showToast('Partida não encontrada','warn'); return; }
+
+  // Popula sRows com os dados existentes
+  sRows=[]; uPhotos={foto1:null,foto2:null}; sRowCounter=0;
+
+  openModal('Editar Partida',`
+  <!-- LEITURA POR IA -->
+  <div style="background:linear-gradient(135deg,rgba(184,134,11,0.1),rgba(0,0,0,0));border:1px solid rgba(255,215,0,0.25);padding:14px 16px;margin-bottom:16px">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:6px">
+      <i class="fas fa-magic"></i> Atualizar Evidências por IA
+    </div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:12px">Suba novos prints para reler os dados automaticamente.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <label class="upload-zone" id="upload-foto1" style="cursor:pointer">
+        <input type="file" accept="image/*" style="display:none" onchange="markPhoto('foto1',this)">
+        <i class="fas fa-trophy"></i>
+        <p>Print Colocação<br><span style="color:var(--gold);font-size:10px">clique para selecionar</span></p>
+      </label>
+      <label class="upload-zone" id="upload-foto2" style="cursor:pointer">
+        <input type="file" accept="image/*" style="display:none" onchange="markPhoto('foto2',this)">
+        <i class="fas fa-chart-bar"></i>
+        <p>Print Estatísticas<br><span style="color:var(--gold);font-size:10px">clique para selecionar</span></p>
+      </label>
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="lerPrints()">
+      <i class="fas fa-robot"></i> Ler Prints com IA
+    </button>
+    <div id="ai-status" style="margin-top:10px;font-size:12px;color:var(--gray);text-align:center;display:none"></div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-size:10px;color:var(--gray);letter-spacing:0.1em">OU EDITE MANUALMENTE</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>
+
+  <!-- CAMPOS GERAIS -->
+  <div class="fgrid" style="margin-bottom:16px">
+    <div class="fg"><label>Data *</label><input type="date" class="finput" id="m-data" value="${m.data}"></div>
+    <div class="fg"><label>Scrim (opcional)</label><input type="text" class="finput" id="m-scrim" placeholder="Ex: Scrim vs Team X" value="${m.scrim||''}"></div>
+    <div class="fg"><label>Mapa *</label>
+      <select class="fselect" id="m-mapa">
+        ${['Erangel','Miramar','Rondo'].map(mp=>`<option${m.mapa===mp?' selected':''}>${mp}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  <!-- ESTATÍSTICAS -->
+  <div style="border-top:1px solid var(--border);padding-top:16px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.08em;text-transform:uppercase">Estatísticas por Jogador</span>
+      <button class="btn btn-primary" style="padding:6px 12px;font-size:10px" onclick="addSRow()"><i class="fas fa-plus"></i> Jogador</button>
+    </div>
+    <div id="srows"></div>
+  </div>`,
+  `<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+   <button class="btn btn-primary" onclick="saveEditMatch(${id})"><i class="fas fa-save"></i> Salvar Alterações</button>`);
+
+  addSRowHeader();
+
+  // Preenche linhas com dados existentes
+  (m.estatisticas||[]).forEach(s=>{
+    addSRow();
+    const rid = sRows[sRows.length-1];
+    const sel = document.getElementById('sp-'+rid);
+    if(sel) sel.value = s.jogador_id;
+    const f=(fid,v)=>{const el=document.getElementById(fid);if(el)el.value=v||0;};
+    f('sd-'+rid, s.dano);
+    f('sk-'+rid, s.kills);
+    f('ss-'+rid, s.salvamentos);
+    f('su-'+rid, s.suportes);
+    f('sc-'+rid, s.colocacao||1);
+  });
+
+  if(!m.estatisticas?.length) addSRow();
+}
+
+async function saveEditMatch(id){
+  const data = document.getElementById('m-data').value;
+  const scrim = document.getElementById('m-scrim').value.trim();
+  const mapa = document.getElementById('m-mapa').value;
+  if(!data){ alert('Informe a data.'); return; }
+  if(!sRows.length){ alert('Adicione ao menos um jogador.'); return; }
+
+  const stats = [];
+  for(const rid of sRows){
+    const el_p=document.getElementById('sp-'+rid);
+    if(!el_p) continue;
+    stats.push({
+      jogador_id: +el_p.value,
+      dano:        +(document.getElementById('sd-'+rid)?.value)||0,
+      kills:       +(document.getElementById('sk-'+rid)?.value)||0,
+      salvamentos: +(document.getElementById('ss-'+rid)?.value)||0,
+      suportes:    +(document.getElementById('su-'+rid)?.value)||0,
+      colocacao:   +(document.getElementById('sc-'+rid)?.value)||1,
+      partida_id:  +id
+    });
+  }
+  if(!stats.length){ alert('Erro ao ler dados. Tente novamente.'); return; }
+
+  // Upload de novas fotos se enviadas
+  const m = MATCHES.find(x=>+x.id===+id);
+  let foto1_url = m?.foto1_url || null;
+  let foto2_url = m?.foto2_url || null;
+
+  closeModal();
+  showToast('Salvando alterações...', 'info', 2500);
+
+  if(uPhotos.foto1){
+    try{ foto1_url = await ghUploadMatchPhoto(id,'foto1',uPhotos.foto1); }
+    catch(e){ console.warn('Upload foto1 falhou:',e); }
+  }
+  if(uPhotos.foto2){
+    try{ foto2_url = await ghUploadMatchPhoto(id,'foto2',uPhotos.foto2); }
+    catch(e){ console.warn('Upload foto2 falhou:',e); }
+  }
+
+  MATCHES = MATCHES.map(x => +x.id===+id
+    ? {...x, data, scrim:scrim||null, mapa, foto1_url, foto2_url, estatisticas: stats}
+    : x
+  );
+  saveCache();
+  renderPage('matches', true);
+
+  try{
+    await persistAll();
+    showToast('✅ Partida atualizada!', 'success');
+  } catch(e){
+    showToast('❌ Erro ao sincronizar: '+e.message, 'warn', 6000);
+  }
 }
 
 function delMatch(id){
