@@ -86,6 +86,52 @@
   ],
   "partidas": [
     {
+      "id": 1780782979237,
+      "data": "2026-06-06",
+      "scrim": "Final",
+      "mapa": "Miramar",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780782979237_foto1.jpg?v=1780782979246",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780782979237_foto2.jpg?v=1780782980779",
+      "estatisticas": [
+        {
+          "jogador_id": 6,
+          "dano": 57,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 1,
+          "colocacao": 12,
+          "partida_id": 1780782979237
+        },
+        {
+          "jogador_id": 8,
+          "dano": 466,
+          "kills": 3,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780782979237
+        },
+        {
+          "jogador_id": 7,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780782979237
+        },
+        {
+          "jogador_id": 1,
+          "dano": 320,
+          "kills": 2,
+          "salvamentos": 0,
+          "suportes": 1,
+          "colocacao": 12,
+          "partida_id": 1780782979237
+        }
+      ]
+    },
+    {
       "id": 1780779693193,
       "data": "2026-06-06",
       "scrim": "Semi final",
@@ -759,5 +805,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780779158936
+  "_nextId": 1780782849569
 }
