@@ -1542,7 +1542,7 @@ function initCharts(page){
     if(mCtx)chartInstances.map=new Chart(mCtx,{type:'doughnut',data:{labels:mapLabels,datasets:[{data:mapData,backgroundColor:mapBg,hoverBackgroundColor:mapHover,borderColor:'rgba(0,0,0,0.55)',borderWidth:2,hoverBorderColor:'rgba(255,255,255,0.25)',hoverBorderWidth:3,hoverOffset:10}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#E5E5E5',font:{size:12,family:"'Barlow Condensed',sans-serif",weight:'700'},padding:16,usePointStyle:true,pointStyleWidth:10,generateLabels:chart=>{const ds=chart.data.datasets[0];return chart.data.labels.map((label,i)=>{const total=ds.data.reduce((a,b)=>a+b,0);const pct=total?((ds.data[i]/total)*100).toFixed(0):0;return{text:`${label}  ${ds.data[i]}x (${pct}%)`,fillStyle:ds.backgroundColor[i],strokeStyle:'transparent',hidden:false,index:i};});}}},tooltip:{callbacks:{label:ctx=>{const total=ctx.dataset.data.reduce((a,b)=>a+b,0);const pct=total?((ctx.parsed/total)*100).toFixed(1):0;return ` ${ctx.label}: ${ctx.parsed} partida(s) — ${pct}%`;},labelColor:ctx=>({borderColor:'transparent',backgroundColor:mapBg[ctx.dataIndex],borderRadius:3})}},},cutout:'60%'}});
     const pw=PLAYERS.filter(p=>pStats(p.id).n>0);
     const dCtx=document.getElementById('dmgChart');
-    if(dCtx&&pw.length)chartInstances.dmg=new Chart(dCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio',data:pw.map(p=>{const st=pStats(p.id);return+(st.dano/st.n).toFixed(0)}),backgroundColor:pw.map(p=>pStats(p.id).n>=40?'rgba(184,134,11,0.75)':'rgba(239,68,68,0.5)'),borderColor:pw.map(p=>pStats(p.id).n>=40?'#FFD700':'#EF4444'),borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:11}}}}}});
+    if(dCtx&&pw.length)chartInstances.dmg=new Chart(dCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio',data:pw.map(p=>{const st=pStats(p.id);return+(st.dano/st.n).toFixed(0)}),backgroundColor:pw.map(p=>pStats(p.id).n>=40?'rgba(184,134,11,0.75)':'rgba(239,68,68,0.5)'),borderColor:pw.map(p=>pStats(p.id).n>=40?'#FFD700':'#EF4444'),borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#E5E5E5'}},x:{grid:{display:false},ticks:{color:'#E5E5E5',font:{size:11}}}}}});
   }
   if(page==='profile'||page==='player-profile')initProfileCharts(window._viewingPlayerId||CURRENT_USER?.pid);
   if(page==='reports'&&MATCHES.length>0){
@@ -1551,7 +1551,7 @@ function initCharts(page){
     const pw=(pfilt?PLAYERS.filter(p=>+p.id===+pfilt):PLAYERS).filter(p=>{let n=0;MATCHES.filter(m=>!mfilt||m.mapa===mfilt).forEach(m=>(m.estatisticas||[]).forEach(s=>{if(+s.jogador_id===+p.id)n++}));return n>0});
     const getData=pid=>{let d=0,n=0;MATCHES.filter(m=>!mfilt||m.mapa===mfilt).forEach(m=>(m.estatisticas||[]).forEach(s=>{if(+s.jogador_id===+pid){d+=+s.dano;n++;}}));return n?+(d/n).toFixed(0):0};
     const rCtx=document.getElementById('rptChart');
-    if(rCtx&&pw.length)chartInstances.rpt=new Chart(rCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio/Partida',data:pw.map(p=>getData(p.id)),backgroundColor:'rgba(184,134,11,0.75)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#FFD700',font:{size:11}}}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#888'}},x:{grid:{display:false},ticks:{color:'#888',font:{size:10}}}}}});
+    if(rCtx&&pw.length)chartInstances.rpt=new Chart(rCtx,{type:'bar',data:{labels:pw.map(p=>p.nick),datasets:[{label:'Dano Médio/Partida',data:pw.map(p=>getData(p.id)),backgroundColor:'rgba(184,134,11,0.75)',borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#FFD700',font:{size:11}}}},scales:{y:{grid:{color:'rgba(255,215,0,0.06)'},ticks:{color:'#E5E5E5'}},x:{grid:{display:false},ticks:{color:'#E5E5E5',font:{size:10}}}}}});
   }
 }
 
@@ -1986,8 +1986,8 @@ function initProfileCharts(overridePid){
     type:'line',
     data:{labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'22',borderWidth:2,fill:true,tension:0.4,pointRadius:ptidas.length<=20?3:0,pointHoverRadius:5}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
-      y:{grid:{color:'rgba(255,215,0,0.05)'},ticks:{color:'#888',font:{size:10}}},
-      x:{grid:{display:false},ticks:{color:'#666',font:{size:9},maxTicksLimit:6,maxRotation:0}}
+      y:{grid:{color:'rgba(255,215,0,0.05)'},ticks:{color:'#E5E5E5',font:{size:10}}},
+      x:{grid:{display:false},ticks:{color:'#E5E5E5',font:{size:9},maxTicksLimit:6,maxRotation:0}}
     }}
   });
 
