@@ -1530,6 +1530,11 @@ function viewArc(mk){
 // CHARTS
 // ============================================================
 function initCharts(page){
+  // Força cor branca em todos os textos do Chart.js globalmente
+  if(window.Chart){
+    Chart.defaults.color = '#E5E5E5';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  }
   if(page==='dashboard'&&MATCHES.length>0){
     const mc={};
     MATCHES.forEach(m=>{if(m.mapa){mc[m.mapa]=(mc[m.mapa]||0)+1;}});
