@@ -75,7 +75,14 @@
       "nick": "FV Caju",
       "ativo": true,
       "criado_em": "2026-06-04T05:36:10.508502+00:00",
-      "avatar_url": ""
+      "avatar_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/avatars/8.jpg?v=1780783149350",
+      "full_name": "Elvan",
+      "role_in_team": "IGL",
+      "joined_at": "2021-01-06",
+      "player_status": "ativo",
+      "bio": "",
+      "social_links": "@fvcaju",
+      "admin_notes": ""
     },
     {
       "id": 1780614933459,
@@ -805,5 +812,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780782849569
+  "_nextId": 1780783046085
 }
