@@ -2093,7 +2093,7 @@ function markPhoto(slot, input){
   };
   reader.readAsDataURL(file);
 }
-let aiReading=false;
+let sRowCounter = 0;
 
 function modalAddMatch(){
   sRows=[];uPhotos={foto1:null,foto2:null};sRowCounter=0;
@@ -2135,7 +2135,6 @@ function modalAddMatch(){
   addSRow();
 }
 
-let sRowCounter = 0;
 function addSRow(){
   const rid = ++sRowCounter;
   sRows.push(rid);
@@ -2167,141 +2166,6 @@ function addSRowHeader(){
   </div>`;
   document.getElementById('srows').insertAdjacentHTML('beforebegin', header);
 }
-function matchPlayer(nick){
-  if(!nick) return null;
-  const n = nick.toLowerCase().replace(/f[4a]vel[a4]s*/i,'').replace(/fvs*/i,'').trim();
-  return PLAYERS.find(p => {
-    const pn = p.nick.toLowerCase().replace(/f[4a]vel[a4]s*/i,'').replace(/fvs*/i,'').trim();
-    return pn.includes(n) || n.includes(pn) || p.nick.toLowerCase().includes(nick.toLowerCase());
-  }) || PLAYERS.find(p => p.nick.toLowerCase().includes(n));
-}
-
-// Parse PUBG Mobile OCR text
-function parsePUBGText(text){
-  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
-  const full = text.toLowerCase();
-
-  // ── Colocação ──────────────────────────────────────────────
-  let colocacao = 1;
-  for(const line of lines){
-    // "10º /20" ou "10° /20" ou "#10" ou "10."
-    let m = line.match(/^#?(\d+)[º°\.]?\s*[\/\-]?\s*\d*/);
-    if(m && +m[1] > 0 && +m[1] <= 100){ colocacao = +m[1]; break; }
-    m = line.match(/(\d+)[º°]\s*\/\s*\d+/);
-    if(m){ colocacao = +m[1]; break; }
-  }
-
-  // ── Mapa ────────────────────────────────────────────────────
-  let mapa = 'Erangel';
-  if(full.includes('miramar')) mapa = 'Miramar';
-  else if(full.includes('rondo')) mapa = 'Rondo';
-
-  // ── Jogadores ───────────────────────────────────────────────
-  // Normaliza nick para comparação (remove prefixos e caracteres especiais)
-  function normNick(s){
-    return s.toLowerCase()
-      .replace(/f[a4]vel[a4]/g,'')
-      .replace(/fv/g,'')
-      .replace(/[^a-z0-9]/g,'')
-      .trim();
-  }
-
-  // Encontra o jogador mais próximo na lista
-  function findPlayer(raw){
-    const rawN = normNick(raw);
-    if(!rawN) return null;
-    // Exact match first
-    let found = PLAYERS.find(p => normNick(p.nick) === rawN);
-    if(found) return found;
-    // Partial match
-    found = PLAYERS.find(p => {
-      const pn = normNick(p.nick);
-      return pn && rawN && (pn.includes(rawN) || rawN.includes(pn));
-    });
-    return found || null;
-  }
-
-  // Extrai todos os números de uma string
-  function getNums(s){ return (s.match(/\d+\.?\d*/g)||[]).map(Number); }
-
-  const jogadores = [];
-  const found = new Set();
-
-  // ── Estratégia 1: linha contém nick do jogador ──────────────
-  // O Google Vision normalmente retorna uma linha por jogador
-  // com o nick seguido dos stats na mesma ou próximas linhas
-  for(let i=0; i<lines.length; i++){
-    const line = lines[i];
-    const player = findPlayer(line);
-    if(!player || found.has(player.id)) continue;
-
-    // Junta linha atual + 4 próximas para buscar números
-    const ctx = lines.slice(i, Math.min(i+5, lines.length)).join(' ');
-    const nums = getNums(ctx);
-
-    // Filtra números que parecem ser stats do PUBG
-    // Pontuação: float grande (ex: 79.0, 48.4)
-    // Abates/Assistências/Resgatar: 0-20
-    // Dano: 50-9999
-    // Tempo: números com ponto (ex: 15.7) ou grandes sem ponto
-
-    let kills=0, dano=0, salv=0, sup=0;
-
-    // Separa floats de inteiros
-    const floats = nums.filter(n => !Number.isInteger(n) || String(nums).includes('.'));
-    const ints   = getNums(ctx)
-      .filter(n => Number.isInteger(n))
-      .filter(n => n <= 9999);
-
-    // Dano: maior inteiro entre 50 e 9999 (excluindo tempo de sobrevivência que vira float)
-    const danoNums = ints.filter(n => n >= 50 && n < 9000);
-    if(danoNums.length) dano = Math.max(...danoNums);
-
-    // Kills, Assistências, Resgatar: inteiros pequenos (0-20), na ordem que aparecem
-    const smallInts = ints.filter(n => n >= 0 && n <= 20);
-    if(smallInts.length >= 1) kills = smallInts[0];
-    if(smallInts.length >= 2) sup   = smallInts[1];
-    if(smallInts.length >= 3) salv  = smallInts[2];
-
-    found.add(player.id);
-    jogadores.push({ nick: player.nick, kills, dano, salvamentos: salv, suportes: sup });
-  }
-
-  // ── Estratégia 2: busca direta por cada jogador no texto ───
-  if(jogadores.length === 0){
-    for(const player of PLAYERS){
-      const pNorm = normNick(player.nick);
-      // Procura o nick em qualquer forma no texto
-      const idx = full.indexOf(pNorm.slice(0,4)); // primeiros 4 chars
-      if(idx < 0) continue;
-
-      // Pega contexto ao redor
-      const ctx = text.substring(Math.max(0,idx-10), Math.min(text.length, idx+200));
-      const nums = getNums(ctx).filter(n => n <= 9999);
-      if(!nums.length) continue;
-
-      const danoNums = nums.filter(n => n >= 50 && n < 9000);
-      const smallInts = nums.filter(n => n >= 0 && n <= 20);
-
-      jogadores.push({
-        nick: player.nick,
-        kills:       smallInts[0] || 0,
-        suportes:    smallInts[1] || 0,
-        dano:        danoNums.length ? Math.max(...danoNums) : 0,
-        salvamentos: smallInts[2] || 0
-      });
-    }
-  }
-
-  // ── Estratégia 3: log completo para debug ──────────────────
-  console.log('[PUBG Parser] Text:', text.substring(0,300));
-  console.log('[PUBG Parser] Found players:', jogadores.length, jogadores);
-  console.log('[PUBG Parser] Colocacao:', colocacao, 'Mapa:', mapa);
-
-  return { colocacao, mapa, jogadores };
-}
-
-
 async function saveMatch(){
   const data=document.getElementById('m-data').value;
   const scrim=document.getElementById('m-scrim').value.trim();
