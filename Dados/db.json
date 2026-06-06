@@ -86,6 +86,52 @@
   ],
   "partidas": [
     {
+      "id": 1780704002931,
+      "data": "2026-06-05",
+      "scrim": null,
+      "mapa": "Erangel",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780704002931_foto1.jpg?v=1780704002937",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780704002931_foto2.jpg?v=1780704004880",
+      "estatisticas": [
+        {
+          "jogador_id": 1,
+          "dano": 271,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780704002931
+        },
+        {
+          "jogador_id": 8,
+          "dano": 98,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780704002931
+        },
+        {
+          "jogador_id": 6,
+          "dano": 261,
+          "kills": 1,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780704002931
+        },
+        {
+          "jogador_id": 1780614933459,
+          "dano": 293,
+          "kills": 2,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 12,
+          "partida_id": 1780704002931
+        }
+      ]
+    },
+    {
       "id": 1780703852190,
       "data": "2026-06-05",
       "scrim": null,
