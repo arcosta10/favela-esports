@@ -5,11 +5,11 @@
       "nick": "FV Luke",
       "ativo": true,
       "criado_em": "2026-06-04T05:36:10.508502+00:00",
-      "full_name": "",
+      "full_name": "Arthur Lucas",
       "role_in_team": "Fragger",
       "joined_at": "2022-01-01",
       "player_status": "ativo",
-      "bio": "123",
+      "bio": "",
       "social_links": "@fvluke",
       "admin_notes": "",
       "avatar_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/avatars/1.jpg?v=1780655904097"
@@ -819,5 +819,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780783046085
+  "_nextId": 1780782849569
 }
