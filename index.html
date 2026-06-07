@@ -1909,9 +1909,10 @@ function pgPlayerProfile(playerId){
   const stAll=pStats(pid), rkAll=calcRanking(MATCHES), rkW=calcRanking(getWeekFilter()), rkM=calcRanking(getMonthFilter());
   const posG=rkAll.findIndex(p=>+p.id===pid)+1||'-', posS=rkW.findIndex(p=>+p.id===pid)+1||'-', posM=rkM.findIndex(p=>+p.id===pid)+1||'-';
   const rkP=rkAll.find(p=>+p.id===pid), sc=rkP?.score??0, med=rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
+  const scD=rkP?.scoreDisplay??scoreToDisplay(sc);
   const contrib=rkP?.contrib??{dano:0,salv:0,kills:0,sup:0}, ss=rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
   const apt=stAll.n>=40, W=SCORE_WEIGHTS, scoreMax=W.dano+W.salvamentos+W.kills+W.suportes;
-  const scorePct=sc?(sc/scoreMax*100).toFixed(1):0;
+  const scorePct=scD?(scD/10*100).toFixed(1):0;
   const mapas=[...new Set(MATCHES.map(m=>m.mapa).filter(Boolean))];
   const mapStats=mapas.map(mapa=>{const ms=MATCHES.filter(m=>m.mapa===mapa);const st=pStats(pid,ms);return{mapa,n:st.n,dano:st.n?+(st.dano/st.n).toFixed(0):0,kills:st.n?+(st.kills/st.n).toFixed(2):0,salv:st.n?+(st.salv/st.n).toFixed(2):0,sup:st.n?+(st.sup/st.n).toFixed(2):0};}).filter(m=>m.n>0).sort((a,b)=>b.n-a.n);
   const bestMap=mapStats.reduce((best,m)=>{const s=m.dano*0.6+m.kills*0.25+m.salv*0.1+m.sup*0.05;const bs=best?(best.dano*0.6+best.kills*0.25+best.salv*0.1+best.sup*0.05):0;return s>bs?m:best;},null);
