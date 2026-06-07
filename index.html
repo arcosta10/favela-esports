@@ -1122,21 +1122,21 @@ function buildRankTbl(matchList, label, icon, color){
     <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Nível</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Aptidão</th></tr></thead>
     <tbody>${rk.map((p,i)=>{
-      const {st,medias,score:sc,contrib,scorePct,scoreStatus} = p;
+      const {st,medias,score:sc,scoreDisplay:scD,contrib,scorePct,scoreStatus} = p;
       const n=st.n, gn=pStats(p.id).n, rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
-      const barW = n ? scorePct : 0;
+      const barW = n ? (scD/10*100).toFixed(1) : 0;
 
       return`<tr>
         <td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
         <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
         <td style="min-width:110px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:${n&&scoreStatus?scoreStatus.color:'var(--gray)'};line-height:1">
-            ${n?(rkP?.scoreDisplay??sc):'—'}<span style="font-size:11px;font-weight:400;color:var(--gray)"> / 10</span>
+            ${n?scD:'—'}<span style="font-size:11px;font-weight:400;color:var(--gray)"> / 10</span>
           </div>
           ${n?`<div style="background:var(--bg2);height:5px;border-radius:2px;margin-top:4px;width:90px">
             <div style="width:${barW}%;height:100%;background:linear-gradient(90deg,${scoreStatus.color}99,${scoreStatus.color});border-radius:2px;transition:width 0.4s"></div>
           </div>
-          <div style="font-size:9px;color:var(--gray);margin-top:2px">${scorePct}% do máx.</div>`:''}
+          <div style="font-size:9px;color:var(--gray);margin-top:2px">${(scD/10*100).toFixed(1)}% do máx.</div>`:''}
         </td>
         <td>
           ${n?`<span style="display:inline-flex;align-items:center;padding:3px 8px;border-radius:2px;font-size:10px;font-weight:700;letter-spacing:0.08em;background:${scoreStatus.bg};color:${scoreStatus.color};border:1px solid ${scoreStatus.color}44">${scoreStatus.label}</span>`:'<span style="color:var(--gray);font-size:11px">—</span>'}
@@ -1255,8 +1255,9 @@ function pgPlayers(){
     const st=pStats(p.id), apt=st.n>=40, pct=Math.min(100,(st.n/40*100)).toFixed(0);
     const rkP = rkGeral.find(x=>+x.id===+p.id);
     const sc = rkP?.score ?? 0;
+    const scD = rkP?.scoreDisplay ?? scoreToDisplay(sc);
     const med = rkP?.medias ?? {dano:0,kills:0,salv:0,sup:0};
-    const scorePct = (sc/scoreMax*100).toFixed(0);
+    const scorePct = (scD/10*100).toFixed(0);
     const posG = posIn(rkGeral,   p.id);
     const posS = posIn(rkSemanal, p.id);
     const posM = posIn(rkMensal,  p.id);
@@ -1296,7 +1297,7 @@ function pgPlayers(){
           <div>
             <div style="font-size:9px;color:var(--gray);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:2px">Score</div>
             <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:${rkP?.scoreStatus?.color||'var(--gold)'};line-height:1">
-              ${rkP?.scoreDisplay??sc}<span style="font-size:12px;font-weight:400;color:var(--gray)"> / 10</span>
+              ${rkP?.scoreDisplay??scD}<span style="font-size:12px;font-weight:400;color:var(--gray)"> / 10</span>
             </div>
             <div style="font-size:10px;color:var(--gray);margin-top:2px">${rkP?.scorePct??0}% do máximo</div>
           </div>
