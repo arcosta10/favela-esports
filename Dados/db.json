@@ -114,6 +114,52 @@
   ],
   "partidas": [
     {
+      "id": 1780865126961,
+      "data": "2026-06-07",
+      "scrim": "Campeonato",
+      "mapa": "Miramar",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780865126961_foto1.jpg?v=1780865126973",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780865126961_foto2.jpg?v=1780865129146",
+      "estatisticas": [
+        {
+          "jogador_id": 8,
+          "dano": 53,
+          "kills": 0,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 19,
+          "partida_id": 1780865126961
+        },
+        {
+          "jogador_id": 4,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 19,
+          "partida_id": 1780865126961
+        },
+        {
+          "jogador_id": 1,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 19,
+          "partida_id": 1780865126961
+        },
+        {
+          "jogador_id": 6,
+          "dano": 124,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 19,
+          "partida_id": 1780865126961
+        }
+      ]
+    },
+    {
       "id": 1780852555442,
       "data": "2026-06-07",
       "scrim": "Scrim",
@@ -1109,5 +1155,5 @@
     }
   ],
   "eventos": [],
-  "_nextId": 1780851617643
+  "_nextId": 1780852858419
 }
