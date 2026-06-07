@@ -102,7 +102,14 @@
       "id": 1780614933459,
       "nick": "FV Kirim",
       "ativo": true,
-      "avatar_url": ""
+      "avatar_url": "",
+      "full_name": "",
+      "role_in_team": "Segundo homen",
+      "joined_at": "",
+      "player_status": "ativo",
+      "bio": "",
+      "social_links": "",
+      "admin_notes": ""
     }
   ],
   "partidas": [
