@@ -923,33 +923,40 @@ function openApp(savedPage){
 
   // ── Mensagem de boas-vindas personalizada para jogadores ──
   if(!isAdmin() && CURRENT_USER?.pid){
-    setTimeout(()=>showWelcomeMessage(CURRENT_USER.pid), 600);
+    // Aguarda DOM renderizar antes de abrir o modal
+    requestAnimationFrame(()=>setTimeout(()=>showWelcomeMessage(CURRENT_USER.pid), 200));
   }
 }
 
 function showWelcomeMessage(pid){
   const rk = calcRanking(MATCHES);
   const rkP = rk.find(p=>+p.id===+pid);
-  if(!rkP || !rkP.scoreDisplay) return; // sem partidas ainda
 
-  const label = rkP.scoreStatus?.label || '';
+  // Se não tem partidas, score é 0 = Novato
+  const label = rkP?.scoreStatus?.label || scoreDisplayStatus(scoreToDisplay(0)).label;
+
   let msg = null;
+  let icon = '🎮';
 
   if(label === 'Iniciante'){
-    msg = '🎮 Parabéns, falta pouco para você chegar no nível do FV PACO.';
+    msg = 'Parabéns, falta pouco para você chegar no nível do FV PACO.';
+    icon = '🎮';
   } else if(label === 'Novato'){
-    msg = '💀 Parabéns, você é o PIOR.';
+    msg = 'Parabéns, você é o PIOR.';
+    icon = '💀';
   }
 
   if(!msg) return;
 
+  const statusColor = rkP?.scoreStatus?.color || scoreDisplayStatus(scoreToDisplay(0)).color;
+
   openModal('Mensagem do Sistema',
     `<div style="text-align:center;padding:20px 0">
-      <div style="font-size:40px;margin-bottom:16px">${label==='Novato'?'💀':'🎮'}</div>
-      <p style="font-size:16px;font-weight:600;color:var(--white);line-height:1.5;margin:0">${msg}</p>
-      <p style="font-size:11px;color:var(--gray);margin-top:10px;letter-spacing:0.05em">Nível atual: <span style="color:${rkP.scoreStatus.color};font-weight:700">${label}</span></p>
+      <div style="font-size:48px;margin-bottom:16px">${icon}</div>
+      <p style="font-size:16px;font-weight:600;color:var(--white);line-height:1.6;margin:0">${msg}</p>
+      <p style="font-size:11px;color:var(--gray);margin-top:12px;letter-spacing:0.05em">Nível atual: <span style="color:${statusColor};font-weight:700">${label}</span></p>
     </div>`,
-    `<button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal()"><i class="fas fa-check"></i> OK</button>`
+    `<button class="btn btn-primary" style="width:100%;justify-content:center" onclick="closeModal()"><i class="fas fa-check"></i> OK, Entendido!</button>`
   );
 }
 
