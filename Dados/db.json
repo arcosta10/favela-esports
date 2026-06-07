@@ -114,25 +114,6 @@
   ],
   "partidas": [
     {
-      "id": 1780865235476,
-      "data": "2026-06-07",
-      "scrim": null,
-      "mapa": "Erangel",
-      "foto1_url": null,
-      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780865235476_foto2.jpg?v=1780865235482",
-      "estatisticas": [
-        {
-          "jogador_id": 1,
-          "dano": 0,
-          "kills": 0,
-          "salvamentos": 0,
-          "suportes": 0,
-          "colocacao": 1,
-          "partida_id": 1780865235476
-        }
-      ]
-    },
-    {
       "id": 1780865220661,
       "data": "2026-06-07",
       "scrim": null,
