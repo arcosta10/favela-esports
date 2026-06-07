@@ -1072,7 +1072,18 @@ async function renderPage(page, skipSync=false){
     await loadAll();
   }
   const fn={dashboard:pgDashboard,rankings:pgRankings,matches:pgMatches,history:pgHistory,calendar:pgCalendar,players:pgPlayers,reports:pgReports,profile:pgProfile,'player-profile':()=>pgPlayerProfile(window._viewingPlayerId)};
-  document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
+  try{
+    document.getElementById('mainContent').innerHTML=fn[page]?fn[page]():'';
+  }catch(err){
+    console.error('[renderPage] Erro ao renderizar página "'+page+'":', err);
+    document.getElementById('mainContent').innerHTML=`
+      <div style="text-align:center;padding:60px;color:var(--red)">
+        <i class="fas fa-exclamation-triangle" style="font-size:40px;margin-bottom:16px;display:block"></i>
+        <div style="font-size:14px;font-weight:600">Erro ao carregar a página</div>
+        <div style="font-size:11px;color:var(--gray);margin-top:8px">${err.message||'Erro desconhecido'}</div>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="renderPage('${page}',true)"><i class="fas fa-redo"></i> Tentar novamente</button>
+      </div>`;
+  }
   setTimeout(()=>initCharts(page),80);
 }
 
@@ -1084,7 +1095,12 @@ async function reloadData(){
   const key = map[page]||'dashboard';
   Object.values(chartInstances).forEach(c=>{try{c.destroy()}catch(e){}});
   chartInstances={};
-  document.getElementById('mainContent').innerHTML=fn[key]?fn[key]():'';
+  try{
+    document.getElementById('mainContent').innerHTML=fn[key]?fn[key]():'';
+  }catch(err){
+    console.error('[reloadData] Erro ao renderizar:', err);
+    document.getElementById('mainContent').innerHTML=`<div style="text-align:center;padding:40px;color:var(--red)"><i class="fas fa-exclamation-triangle"></i> Erro: ${err.message}</div>`;
+  }
   setTimeout(()=>initCharts(key),80);
 }
 
