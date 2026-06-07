@@ -114,6 +114,52 @@
   ],
   "partidas": [
     {
+      "id": 1780865220661,
+      "data": "2026-06-07",
+      "scrim": null,
+      "mapa": "Rondo",
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780865220661_foto1.jpg?v=1780865220666",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1780865220661_foto2.jpg?v=1780865222393",
+      "estatisticas": [
+        {
+          "jogador_id": 4,
+          "dano": 392,
+          "kills": 2,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1780865220661
+        },
+        {
+          "jogador_id": 1,
+          "dano": 96,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1780865220661
+        },
+        {
+          "jogador_id": 6,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1780865220661
+        },
+        {
+          "jogador_id": 8,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1780865220661
+        }
+      ]
+    },
+    {
       "id": 1780865151377,
       "data": "2026-06-07",
       "scrim": null,
