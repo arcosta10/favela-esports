@@ -629,7 +629,7 @@ function scoreDisplayStatus(displayed){
   if(displayed >= 6.0) return {label:'Avançado',      color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
   if(displayed >= 4.0) return {label:'Intermediário', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
   if(displayed >= 2.0) return {label:'Iniciante',     color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
-  return                      {label:'Novato',        color:'#888',    bg:'rgba(128,128,128,0.1)'};
+  return                      {label:'Café com leite', color:'#888',    bg:'rgba(128,128,128,0.1)'};
 }
 
 // Atalho para score individual (compatibilidade com código existente)
@@ -941,7 +941,7 @@ function showWelcomeMessage(pid){
   if(label === 'Iniciante'){
     msg = 'Parabéns, falta pouco para você chegar no nível do FV PACO.';
     icon = '🎮';
-  } else if(label === 'Novato'){
+  } else if(label === 'Café com leite'){
     msg = 'Parabéns, você é o PIOR.';
     icon = '💀';
   }
@@ -2671,6 +2671,7 @@ function modalAddPlayer(){
         <option value="Homem livre">Homem livre</option>
         <option value="Segundo homen">Segundo homen</option>
         <option value="Cafe com leite">Cafe com leite</option>
+        <option value="Burro de carga">Burro de carga</option>
       </select>
     </div>
     <div class="fg"><label>Data de Entrada</label><input type="date" class="finput" id="p-joined" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -2724,7 +2725,7 @@ function modalEditPlayer(id,nick){
   if(!isAdmin()){alert('Sem permissão.');return;}
   const p=PLAYERS.find(x=>+x.id===+id)||{};
   window._pendingAvatar=null;
-  const roleOpts=['','IGL/Homem Livre','Frente','Suporte','Homem livre','Segundo homen','Cafe com leite'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
+  const roleOpts=['','IGL/Homem Livre','Frente','Suporte','Homem livre','Segundo homen','Cafe com leite','Burro de carga'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
   const statusOpts=['ativo','reserva','inativo'].map(s=>`<option value="${s}" ${(p.player_status||'ativo')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
   const avatarSrc=getAvatarSrc(p);
   openModal(`Editar Perfil — ${nick}`,`
