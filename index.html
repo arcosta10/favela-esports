@@ -606,15 +606,30 @@ function calcRanking(matchList){
     p.contrib = contrib;
     p.score   = parseFloat((contrib.dano + contrib.salv + contrib.kills + contrib.sup).toFixed(2));
     p.scorePct = parseFloat((p.score / SCORE_MAX * 100).toFixed(1));
-    p.scoreStatus = p.score >= 5.00 ? {label:'Elite',       color:'#FFD700', bg:'rgba(255,215,0,0.15)'}
-                  : p.score >= 4.00 ? {label:'Excelente',   color:'#00D084', bg:'rgba(0,208,132,0.12)'}
-                  : p.score >= 3.00 ? {label:'Muito Bom',   color:'#00B8FF', bg:'rgba(0,184,255,0.12)'}
-                  : p.score >= 2.00 ? {label:'Em Evolução', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'}
-                  :                   {label:'Melhorar',    color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
+    p.scoreDisplay = scoreToDisplay(p.score);
+    p.scoreStatus = scoreDisplayStatus(p.scoreDisplay);
   });
 
   // 4. Ordena por score desc
   return data.sort((a,b) => b.score - a.score || b.medias.dano - a.medias.dano);
+}
+
+// Converte score bruto (0–5.5) para nota exibida (0–10) por faixas proporcionais
+function scoreToDisplay(s){
+  if(s >= 5.00) return parseFloat((9.0 + (s - 5.00) / (5.50 - 5.00) * 1.0).toFixed(2));  // 5.00–5.50 → 9.0–10.0
+  if(s >= 4.00) return parseFloat((6.0 + (s - 4.00) / (4.99 - 4.00) * 2.99).toFixed(2)); // 4.00–4.99 → 6.0–8.99
+  if(s >= 2.00) return parseFloat((2.0 + (s - 2.00) / (3.99 - 2.00) * 3.99).toFixed(2)); // 2.00–3.99 → 2.0–5.99
+  return parseFloat((s / 1.99 * 1.99).toFixed(2));                                         // 0.00–1.99 → 0.0–1.99
+}
+
+// Label e cor baseados na nota exibida (0–10)
+function scoreDisplayStatus(displayed){
+  if(displayed >= 9.0) return {label:'Elite',         color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
+  if(displayed >= 8.0) return {label:'Pro',           color:'#00D084', bg:'rgba(0,208,132,0.12)'};
+  if(displayed >= 6.0) return {label:'Avançado',      color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
+  if(displayed >= 4.0) return {label:'Intermediário', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
+  if(displayed >= 2.0) return {label:'Iniciante',     color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
+  return                      {label:'Novato',        color:'#888',    bg:'rgba(128,128,128,0.1)'};
 }
 
 // Atalho para score individual (compatibilidade com código existente)
@@ -1048,7 +1063,7 @@ function pgDashboard(){
   <div class="cards-row">
     <div class="sc" style="--sc-color:var(--purple2)"><div class="sc-label">Partidas Individuais</div><div class="sc-val">${total}</div><div class="sc-sub">${MATCHES.length} mapa(s) registrado(s)</div><i class="fas fa-gamepad sc-ico"></i></div>
     <div class="sc" style="--sc-color:var(--blue2)"><div class="sc-label">Jogadores</div><div class="sc-val">${PLAYERS.length}</div><div class="sc-sub">${aptos} apto(s)</div><i class="fas fa-users sc-ico"></i></div>
-    <div class="sc" style="--sc-color:var(--gold)"><div class="sc-label">Líder Geral</div><div class="sc-val" style="font-size:${best?'18px':'30px'};color:var(--gold)">${best?best.nick:'-'}</div><div class="sc-sub">${best?'Score '+best.score:'Sem partidas'}</div><i class="fas fa-crown sc-ico"></i></div>
+    <div class="sc" style="--sc-color:var(--gold)"><div class="sc-label">Líder Geral</div><div class="sc-val" style="font-size:${best?'18px':'30px'};color:var(--gold)">${best?best.nick:'-'}</div><div class="sc-sub">${best?'Nota '+best.scoreDisplay:'Sem partidas'}</div><i class="fas fa-crown sc-ico"></i></div>
     <div class="sc" style="--sc-color:var(--cyan)"><div class="sc-label">Próximo Evento</div><div class="sc-val" style="font-size:${proxEv?'14px':'30px'};color:var(--cyan)">${proxEv?proxEv.titulo:'-'}</div><div class="sc-sub">${proxEv?proxEv.data:'Sem eventos'}</div><i class="fas fa-calendar sc-ico"></i></div>
   </div>
   ${total===0?`<div class="empty"><i class="fas fa-crosshairs"></i><h3>Sem partidas ainda</h3><p>Acesse Partidas e comece a registrar.</p></div>`:`
@@ -1063,8 +1078,8 @@ function pgDashboard(){
           <div class="tp-num ${i===0?'gold':''}">${String(i+1).padStart(2,'0')}</div>
           <div style="flex:1;min-width:0">
             <div class="tp-nick">${p.nick}</div>
-            <div class="tp-score-big">${p.score}</div>
-            <div class="tp-info">Score ${p.score} | Dano ${fmtNum(p.medias?.dano??0)}/pt | Kills ${(p.medias?.kills??0).toFixed(1)}</div>
+            <div class="tp-score-big">${p.scoreDisplay}</div>
+            <div class="tp-info">Nota ${p.scoreDisplay} | Dano ${fmtNum(p.medias?.dano??0)}/pt | Kills ${(p.medias?.kills??0).toFixed(1)}</div>
             <span class="badge ${p.st.n>=40?'badge-apto':'badge-napto'}" style="margin-top:5px;display:inline-flex">${p.st.n>=40?'APTO':'NÃO APTO'}</span>
           </div>
         </div>`;}).join('')}
@@ -1098,7 +1113,7 @@ function buildRankTbl(matchList, label, icon, color){
   return`<div class="tw">
     <div class="tw-hdr">
       <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label} <span style="color:var(--gray);font-size:11px;font-weight:400;letter-spacing:0.05em">${getPeriodLabel()}</span></h3>
-      ${best?`<span style="font-size:12px;color:${color}"><i class="fas fa-crown" style="margin-right:4px"></i>MVP: <b>${best.nick}</b> — ${best.score} / ${scoreMax}</span>`:''}
+      ${best?`<span style="font-size:12px;color:${color}"><i class="fas fa-crown" style="margin-right:4px"></i>MVP: <b>${best.nick}</b> — ${best.scoreDisplay} / 10</span>`:''}
     </div>
     <div style="background:rgba(255,215,0,0.04);padding:8px 16px;font-size:11px;color:var(--gray);border-bottom:1px solid rgba(255,215,0,0.08)">
       <i class="fas fa-info-circle" style="color:var(--gold2);margin-right:5px"></i>
@@ -1116,7 +1131,7 @@ function buildRankTbl(matchList, label, icon, color){
         <td><b style="${gn>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
         <td style="min-width:110px">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:${n&&scoreStatus?scoreStatus.color:'var(--gray)'};line-height:1">
-            ${n?sc:'—'}<span style="font-size:11px;font-weight:400;color:var(--gray)"> / ${scoreMax}</span>
+            ${n?(rkP?.scoreDisplay??sc):'—'}<span style="font-size:11px;font-weight:400;color:var(--gray)"> / 10</span>
           </div>
           ${n?`<div style="background:var(--bg2);height:5px;border-radius:2px;margin-top:4px;width:90px">
             <div style="width:${barW}%;height:100%;background:linear-gradient(90deg,${scoreStatus.color}99,${scoreStatus.color});border-radius:2px;transition:width 0.4s"></div>
@@ -1281,7 +1296,7 @@ function pgPlayers(){
           <div>
             <div style="font-size:9px;color:var(--gray);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:2px">Score</div>
             <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:${rkP?.scoreStatus?.color||'var(--gold)'};line-height:1">
-              ${sc}<span style="font-size:12px;font-weight:400;color:var(--gray)"> / ${scoreMax}</span>
+              ${rkP?.scoreDisplay??sc}<span style="font-size:12px;font-weight:400;color:var(--gray)"> / 10</span>
             </div>
             <div style="font-size:10px;color:var(--gray);margin-top:2px">${rkP?.scorePct??0}% do máximo</div>
           </div>
@@ -1509,14 +1524,14 @@ function viewArc(mk){
       </div>
       ${best?`<div style="text-align:right"><div style="font-size:10px;color:var(--gray);letter-spacing:0.15em;text-transform:uppercase">MVP</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--gold)">${best.nick}</div>
-      <div style="font-size:11px;color:var(--gray)">${best.score} pts</div></div>`:''}
+      <div style="font-size:11px;color:var(--gray)">${best.scoreDisplay} pts</div></div>`:''}
     </div>
     <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Col.Média</th><th>Partidas</th><th>Status</th></tr></thead>
     <tbody>${arcRk.map((p,i)=>{const rc=i===0?'r1':i===1?'r2':i===2?'r3':'rn';
     const n=p.st.n;
     return`<tr><td><span class="${rc}">${String(i+1).padStart(2,'0')}</span></td>
     <td><b style="${n>=40?'color:var(--green)':'color:#ffffff'}">${p.nick}</b></td>
-    <td><span class="score-val">${n?p.score:'-'}</span></td>
+    <td><span class="score-val">${n?p.scoreDisplay:'-'}</span></td>
     <td>${n?fmtNum(p.medias?.dano??0):'-'}</td><td>${n?(p.medias?.kills??0).toFixed(2):'-'}</td>
     <td>${n?(p.medias?.salv??0).toFixed(2):'-'}</td><td>${n?(p.medias?.col??0).toFixed(1):'-'}</td>
     <td>${n}/40${n<40&&n>0?`<div class="pbar"><div class="pfill" style="width:${Math.min(100,n/40*100).toFixed(0)}%"></div></div>`:''}</td>
@@ -1630,13 +1645,14 @@ function pgProfile(){
   const posM  = rkM.findIndex(p=>+p.id===+pid)+1||'-';
   const rkP   = rkAll.find(p=>+p.id===+pid);
   const sc    = rkP?.score??0;
+  const scD   = rkP?.scoreDisplay??scoreToDisplay(sc);
   const med   = rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
   const contrib= rkP?.contrib??{dano:0,salv:0,kills:0,sup:0};
   const ss    = rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
   const apt   = stAll.n>=40;
   const W     = SCORE_WEIGHTS;
-  const scoreMax = W.dano+W.salvamentos+W.kills+W.suportes;
-  const scorePct = sc?(sc/scoreMax*100).toFixed(1):0;
+  const scoreMax = 10;
+  const scorePct = scD?(scD/10*100).toFixed(1):0;
 
   // Stats por mapa
   const MAP_COLORS={Erangel:'#00D084',Miramar:'#FF6B35',Rondo:'#FFD700',Sanhok:'#00B8FF',Vikendi:'#8A5CFF',Livik:'#FF4D94',Taego:'#FFFFFF'};
@@ -1685,7 +1701,7 @@ function pgProfile(){
           ${player.bio?`<div style="font-size:12px;color:var(--gray);margin-top:6px;font-style:italic">"${player.bio}"</div>`:''}
           ${player.social_links?`<div style="font-size:11px;color:var(--gold2);margin-top:4px"><i class="fas fa-share-alt" style="margin-right:4px"></i>${player.social_links}</div>`:''}
           <div style="margin-top:8px;font-size:13px;color:var(--gray)">
-            <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
+            <span style="color:${ss.color};font-weight:700">${scD} / 10</span>
             <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
             <span style="color:${ss.color}">${ss.label}</span>
             <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
@@ -1737,7 +1753,7 @@ function pgProfile(){
       <div style="background:#0d0d0d;border:1px solid rgba(255,255,255,0.08);padding:20px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
           <div>
-            <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:${ss.color};line-height:1">${sc}<span style="font-size:18px;color:var(--gray)"> / ${scoreMax}</span></div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:900;color:${ss.color};line-height:1">${scD}<span style="font-size:18px;color:var(--gray)"> / 10</span></div>
             <div style="font-size:11px;color:var(--gray);margin-top:4px">${scorePct}% do máximo teórico</div>
           </div>
           <span style="padding:5px 12px;background:${ss.bg};color:${ss.color};border:1px solid ${ss.color}44;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:0.08em">${ss.label}</span>
@@ -1873,7 +1889,7 @@ function pgPlayerProfile(playerId){
         </div>
         ${player.bio?`<div style="font-size:12px;color:var(--gray);margin-top:6px;font-style:italic">"${player.bio}"</div>`:''}
         <div style="margin-top:8px;font-size:13px;color:var(--gray)">
-          <span style="color:${ss.color};font-weight:700">${sc} / ${scoreMax}</span>
+          <span style="color:${ss.color};font-weight:700">${scD} / 10</span>
           <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
           <span style="color:${ss.color}">${ss.label}</span>
           <span style="margin:0 8px;color:rgba(255,255,255,0.15)">|</span>
@@ -2245,7 +2261,7 @@ Regras:
     }
 
     const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + window._gk,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + window._gk,
       {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
