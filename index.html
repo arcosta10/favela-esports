@@ -2610,13 +2610,12 @@ function modalAddPlayer(){
     <div class="fg"><label>Função no Time</label>
       <select class="fselect" id="p-role">
         <option value="">Selecione...</option>
-        <option value="IGL">IGL</option>
-        <option value="Fragger">Fragger</option>
-        <option value="Support">Support</option>
-        <option value="Sniper">Sniper</option>
-        <option value="Coach">Coach</option>
-        <option value="Manager">Manager</option>
-        <option value="Player">Player</option>
+        <option value="IGL/Homem Livre">IGL/Homem Livre</option>
+        <option value="Frente">Frente</option>
+        <option value="Suporte">Suporte</option>
+        <option value="Homem livre">Homem livre</option>
+        <option value="Segundo homen">Segundo homen</option>
+        <option value="Cafe com leite">Cafe com leite</option>
       </select>
     </div>
     <div class="fg"><label>Data de Entrada</label><input type="date" class="finput" id="p-joined" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -2670,7 +2669,7 @@ function modalEditPlayer(id,nick){
   if(!isAdmin()){alert('Sem permissão.');return;}
   const p=PLAYERS.find(x=>+x.id===+id)||{};
   window._pendingAvatar=null;
-  const roleOpts=['','IGL','Fragger','Support','Sniper','Coach','Manager','Player'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
+  const roleOpts=['','IGL/Homem Livre','Frente','Suporte','Homem livre','Segundo homen','Cafe com leite'].map(r=>`<option value="${r}" ${p.role_in_team===r?'selected':''}>${r||'Selecione...'}</option>`).join('');
   const statusOpts=['ativo','reserva','inativo'].map(s=>`<option value="${s}" ${(p.player_status||'ativo')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('');
   const avatarSrc=getAvatarSrc(p);
   openModal(`Editar Perfil — ${nick}`,`
