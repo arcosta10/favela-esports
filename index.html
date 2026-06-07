@@ -2824,8 +2824,14 @@ async function updPlayer(id){
     } else if(pendingAction && pendingAction.startsWith('data:')){
       // Nova foto: upload real para o GitHub → URL pública
       if(btn) btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando foto...';
-      newAvatarUrl = await ghUploadAvatar(id, pendingAction);
-      console.log('[updPlayer] avatar enviado para GitHub:', newAvatarUrl);
+      try{
+        newAvatarUrl = await ghUploadAvatar(id, pendingAction);
+        console.log('[updPlayer] avatar enviado para GitHub:', newAvatarUrl);
+      } catch(uploadErr){
+        console.error('[updPlayer] ERRO no upload da foto:', uploadErr);
+        showToast('⚠️ Foto não enviada: '+uploadErr.message+'. Dados do perfil salvos sem foto.', 'warn', 8000);
+        // Mantém URL anterior mesmo com erro de upload
+      }
     }
 
     // ── Atualiza array PLAYERS com URL pública (não base64) ──
