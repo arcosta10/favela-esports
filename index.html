@@ -2337,15 +2337,18 @@ Regras:
       parts.push({ inline_data:{ mime_type: mime, data: uPhotos[slot].split(',')[1] } });
     }
 
-    const resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + window._gk,
-      {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ contents:[{ parts }] })
-      }
-    );
-    const data = await resp.json();
+    const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+    let resp, data;
+    for(const model of models){
+      resp = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key=' + window._gk,
+        { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ contents:[{ parts }] }) }
+      );
+      data = await resp.json();
+      console.log('[Gemini] modelo:', model, 'status:', resp.status, JSON.stringify(data).slice(0,150));
+      if(!data.error) break; // funcionou
+      if(!data.error.message?.includes('limit: 0') && !data.error.message?.includes('high demand')) break; // erro diferente, para
+    }
     console.log('[Gemini]', resp.status, JSON.stringify(data).slice(0,300));
 
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
