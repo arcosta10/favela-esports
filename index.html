@@ -492,7 +492,14 @@ async function ghWrite(data, retryCount=0) {
     body: JSON.stringify(body)
   });
 
-  // 422 = SHA desatualizado (outro dispositivo escreveu antes)
+  if(!r.ok && r.status !== 422){
+    const errText = await r.text();
+    console.error('[ghWrite] Falhou status:', r.status, errText);
+    if(r.status === 401 || r.status === 403){
+      throw new Error('Token GitHub inválido ou expirado ('+r.status+'). Contacte o administrador.');
+    }
+    throw new Error('GitHub write falhou: ' + r.status + ' — ' + errText.slice(0,100));
+  }
   // Solução: buscar SHA atual do GitHub, fazer merge e tentar de novo (máx 3x)
   if (r.status === 422 && retryCount < 3) {
     console.warn('[ghWrite] SHA desatualizado, buscando SHA atual e fazendo merge...');
@@ -2467,10 +2474,12 @@ async function saveMatch(){
 
   try{
     await persistAll();
+    // Força sync do GitHub para confirmar que os dados foram salvos
+    await loadAll(true);
     showToast('✅ Partida e fotos sincronizadas!','success');
   }catch(e){
     console.error('[saveMatch] persistAll falhou:',e);
-    showToast('❌ Erro ao sincronizar: '+e.message,'warn',6000);
+    showToast('❌ Erro ao sincronizar com GitHub: '+e.message+'. Dados salvos localmente.','warn',8000);
   }
 }
 
