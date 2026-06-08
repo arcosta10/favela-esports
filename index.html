@@ -1250,8 +1250,29 @@ function pgRankings(){
     rkdn: tblDano,
   };
 
+  const legend = `
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-top:16px">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);margin-bottom:10px"><i class="fas fa-info-circle" style="margin-right:6px"></i>Legenda de Níveis</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${[
+        {label:'Elite',         color:'#FFD700', range:'9.0 – 10.0'},
+        {label:'Pro',           color:'#00D084', range:'8.0 – 8.9'},
+        {label:'Avançado',      color:'#00B8FF', range:'6.0 – 7.9'},
+        {label:'Intermediário', color:'#FF6B35', range:'4.0 – 5.9'},
+        {label:'Iniciante',     color:'#EF4444', range:'2.0 – 3.9'},
+        {label:'Café com leite',color:'#888',    range:'0 – 1.9'},
+      ].map(n=>`
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border-radius:6px;padding:5px 10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0"></div>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:${n.color}">${n.label}</span>
+          <span style="font-size:10px;color:var(--gray)">${n.range}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
   return`<div class="tabs">${tabs.map(t=>`<button class="tab ${tid===t.id?'active':''}" onclick="rkTab(event,'${t.id}')"><i class="fas ${t.icon}" style="margin-right:5px;color:${t.color}"></i>${t.label}</button>`).join('')}</div>
-  ${tabs.map(t=>`<div id="${t.id}" class="${tid===t.id?'':'hidden'}">${contents[t.id]}</div>`).join('')}`;
+  ${tabs.map(t=>`<div id="${t.id}" class="${tid===t.id?'':'hidden'}">${contents[t.id]}</div>`).join('')}
+  ${legend}`;
 }
 function rkTab(e,id){window._rkt=id;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));e.currentTarget.classList.add('active');['rkg','rks','rkm','rkk','rkdn'].forEach(t=>{const el=document.getElementById(t);if(el)el.classList.toggle('hidden',t!==id)});}
 
