@@ -916,6 +916,8 @@ function openApp(savedPage){
 
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
+  // Limpa fotos antigas do localStorage para liberar espaço
+  cleanLocalPhotos();
   // Sidebar admin section
   document.getElementById('nav-admin-sec').style.display=isAdmin()?'':'none';
   document.getElementById('nav-profile-btn').style.display=isAdmin()?'none':'';
@@ -2191,12 +2193,21 @@ async function ghUploadMatchPhoto(matchId, slot, dataUrl){
 
 // Fallback: salva base64 no localStorage para uso imediato antes do GitHub confirmar
 function savePhotoLocal(base64DataUrl, matchId, slot){
-  try{ localStorage.setItem('fv_photo_'+matchId+'_'+slot, base64DataUrl); }
-  catch(e){ console.warn('Foto não salva localmente:', e.message); }
+  // Não salva fotos no localStorage — ocupa muito espaço e causa QuotaExceededError
+  // Fotos ficam apenas no GitHub (raw.githubusercontent.com)
 }
 function getPhotoLocal(matchId, slot){
-  try{ return localStorage.getItem('fv_photo_'+matchId+'_'+slot); }
+  try{ return localStorage.getItem('fv_photo_'+matchId+'_'+slot)||null; }
   catch(e){ return null; }
+}
+
+// Limpa fotos antigas do localStorage para liberar espaço
+function cleanLocalPhotos(){
+  try{
+    const keys=Object.keys(localStorage).filter(k=>k.startsWith('fv_photo_'));
+    keys.forEach(k=>localStorage.removeItem(k));
+    if(keys.length) console.log('[cleanLocalPhotos] Removidas',keys.length,'fotos do localStorage');
+  }catch(e){}
 }
 
 // Resolve URL final da foto: GitHub URL > localStorage > null
@@ -2411,75 +2422,62 @@ async function saveMatch(){
   const stats=[];
   for(const rid of sRows){
     const el_p=document.getElementById('sp-'+rid);
-    const el_d=document.getElementById('sd-'+rid);
-    const el_k=document.getElementById('sk-'+rid);
-    const el_s=document.getElementById('ss-'+rid);
-    const el_u=document.getElementById('su-'+rid);
-    const el_c=document.getElementById('sc-'+rid);
-    if(!el_p){console.warn('Missing row elements for rid:',rid);continue;}
+    if(!el_p) continue;
     stats.push({
       jogador_id:+el_p.value,
-      dano:+(el_d?.value)||0,
-      kills:+(el_k?.value)||0,
-      salvamentos:+(el_s?.value)||0,
-      suportes:+(el_u?.value)||0,
-      colocacao:+(el_c?.value)||1,
+      dano:+(document.getElementById('sd-'+rid)?.value)||0,
+      kills:+(document.getElementById('sk-'+rid)?.value)||0,
+      salvamentos:+(document.getElementById('ss-'+rid)?.value)||0,
+      suportes:+(document.getElementById('su-'+rid)?.value)||0,
+      colocacao:+(document.getElementById('sc-'+rid)?.value)||1,
     });
   }
-  if(!stats.length){alert('Erro ao ler dados dos jogadores. Tente novamente.');return}
+  if(!stats.length){alert('Erro ao ler dados dos jogadores.');return}
 
   const newId = Date.now();
   const foto1data = uPhotos.foto1;
   const foto2data = uPhotos.foto2;
-
-  // Salva preview local imediatamente (para exibir antes do GitHub confirmar)
-  if(foto1data) savePhotoLocal(foto1data, newId, 'foto1');
-  if(foto2data) savePhotoLocal(foto2data, newId, 'foto2');
 
   const newMatch = {
     id: newId, data, scrim: scrim||null, mapa,
     foto1_url: null, foto2_url: null,
     estatisticas: stats.map(s=>({...s, partida_id: newId}))
   };
+
+  // 1. Salva dados imediatamente — sem esperar fotos
   MATCHES = [newMatch, ...MATCHES];
   uPhotos={foto1:null,foto2:null};
+  saveCache();
   closeModal();
   renderPage('matches', true);
-  showToast('Partida salva! Enviando fotos...', 'info', 3000);
+  showToast('Salvando partida...', 'info', 2000);
 
-  // Upload das fotos para GitHub em background
-  let savedFoto1=null, savedFoto2=null;
-  try{
-    if(foto1data){
-      showToast('⬆️ Enviando foto de colocação...','info',5000);
-      savedFoto1 = await ghUploadMatchPhoto(newId,'foto1',foto1data);
-      console.log('[saveMatch] foto1 enviada:',savedFoto1);
-    }
-    if(foto2data){
-      showToast('⬆️ Enviando foto de estatísticas...','info',5000);
-      savedFoto2 = await ghUploadMatchPhoto(newId,'foto2',foto2data);
-      console.log('[saveMatch] foto2 enviada:',savedFoto2);
-    }
-  }catch(e){
-    console.warn('[saveMatch] Upload foto falhou:',e.message);
-    showToast('⚠️ Fotos salvas localmente (sem acesso ao GitHub: '+e.message+')','warn',7000);
-  }
-
-  // Atualiza partida com URLs públicas
-  MATCHES = MATCHES.map(m=>{
-    if(+m.id!==+newId) return m;
-    return {...m, foto1_url: savedFoto1||m.foto1_url, foto2_url: savedFoto2||m.foto2_url};
-  });
-  saveCache();
-
+  // 2. Persiste no GitHub agora (sem fotos)
   try{
     await persistAll();
-    // Força sync do GitHub para confirmar que os dados foram salvos
-    await loadAll(true);
-    showToast('✅ Partida e fotos sincronizadas!','success');
+    showToast('✅ Partida salva!', 'success');
   }catch(e){
-    console.error('[saveMatch] persistAll falhou:',e);
-    showToast('❌ Erro ao sincronizar com GitHub: '+e.message+'. Dados salvos localmente.','warn',8000);
+    console.error('[saveMatch] persistAll falhou:', e);
+    showToast('❌ Erro ao salvar: '+e.message, 'warn', 8000);
+    return;
+  }
+
+  // 3. Upload de fotos em background (não bloqueia)
+  if(foto1data || foto2data){
+    showToast('⬆️ Enviando fotos...', 'info', 5000);
+    let f1=null, f2=null;
+    try{
+      if(foto1data) f1 = await ghUploadMatchPhoto(newId,'foto1',foto1data);
+      if(foto2data) f2 = await ghUploadMatchPhoto(newId,'foto2',foto2data);
+      // Atualiza partida com URLs das fotos
+      MATCHES = MATCHES.map(m=> +m.id===+newId ? {...m, foto1_url:f1||null, foto2_url:f2||null} : m);
+      saveCache();
+      await persistAll();
+      showToast('✅ Fotos enviadas!', 'success');
+    }catch(e){
+      console.warn('[saveMatch] Upload foto falhou:', e.message);
+      showToast('⚠️ Partida salva, mas fotos falharam: '+e.message, 'warn', 7000);
+    }
   }
 }
 
