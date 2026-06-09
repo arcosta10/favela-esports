@@ -575,7 +575,7 @@ function calcRanking(matchList){
   const ms = matchList || MATCHES;
   const W  = SCORE_WEIGHTS;
 
-  // 1. Calcula médias e scoreBruto de cada jogador
+  // 1. Calcula médias de cada jogador
   const data = PLAYERS.map(p => {
     const st = pStats(p.id, ms);
     const n  = st.n;
@@ -586,29 +586,41 @@ function calcRanking(matchList){
       sup  : n ? st.sup   / n : 0,
       col  : n ? st.col   / n : 0,
     };
-    const scoreBruto = n
-      ? parseFloat(((medias.dano * W.dano) + (medias.salv * W.salvamentos) + (medias.kills * W.kills) + (medias.sup * W.suportes)).toFixed(4))
-      : 0;
-    return { ...p, st, medias, scoreBruto };
+    return { ...p, st, medias };
   });
 
-  // 2. Normaliza para 0–10 usando o maior scoreBruto do grupo
-  const maiorBruto = Math.max(...data.map(p => p.scoreBruto), 0.0001);
+  // 2. Encontra o maior valor de cada stat entre jogadores com partidas
+  const max = {
+    dano : Math.max(...data.map(p => p.medias.dano),  0.0001),
+    kills: Math.max(...data.map(p => p.medias.kills), 0.0001),
+    salv : Math.max(...data.map(p => p.medias.salv),  0.0001),
+    sup  : Math.max(...data.map(p => p.medias.sup),   0.0001),
+  };
+
+  // 3. Normaliza cada stat (0–1) e aplica peso
+  // Soma dos pesos = 3+3+2.5+1.5 = 10 → scoreFinal já é 0–10
   data.forEach(p => {
-    const sf = p.st.n ? parseFloat((p.scoreBruto / maiorBruto * 10).toFixed(2)) : 0;
-    p.score        = sf;           // score final 0–10 (usado em todo o sistema)
-    p.scoreDisplay = sf;           // sem conversão extra — já é 0–10
-    p.scorePct     = parseFloat((sf * 10).toFixed(1)); // % do máximo
+    if(!p.st.n){ p.score=0; p.scoreDisplay=0; p.scorePct=0; p.scoreStatus=scoreDisplayStatus(0); p.contrib={dano:0,salv:0,kills:0,sup:0}; return; }
+    const norm = {
+      dano : p.medias.dano  / max.dano,
+      kills: p.medias.kills / max.kills,
+      salv : p.medias.salv  / max.salv,
+      sup  : p.medias.sup   / max.sup,
+    };
+    const sf = parseFloat(((norm.dano*W.dano) + (norm.salv*W.salvamentos) + (norm.kills*W.kills) + (norm.sup*W.suportes)).toFixed(2));
+    p.score        = sf;
+    p.scoreDisplay = sf;
+    p.scorePct     = parseFloat((sf * 10).toFixed(1));
     p.scoreStatus  = scoreDisplayStatus(sf);
     p.contrib      = {
-      dano : parseFloat((p.medias.dano  * W.dano        ).toFixed(1)),
-      salv : parseFloat((p.medias.salv  * W.salvamentos ).toFixed(1)),
-      kills: parseFloat((p.medias.kills * W.kills       ).toFixed(1)),
-      sup  : parseFloat((p.medias.sup   * W.suportes    ).toFixed(1)),
+      dano : parseFloat((norm.dano  * W.dano        ).toFixed(2)),
+      salv : parseFloat((norm.salv  * W.salvamentos ).toFixed(2)),
+      kills: parseFloat((norm.kills * W.kills       ).toFixed(2)),
+      sup  : parseFloat((norm.sup   * W.suportes    ).toFixed(2)),
     };
   });
 
-  // 3. Ordena por score desc, desempate por dano médio
+  // 4. Ordena por score desc, desempate por dano médio
   return data.sort((a,b) => b.score - a.score || b.medias.dano - a.medias.dano);
 }
 
