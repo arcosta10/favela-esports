@@ -559,7 +559,7 @@ function fmtMonthKey(key){ const mn=['Janeiro','Fevereiro','Março','Abril','Mai
 // scoreBruto = (danoPorPartida*2) + (salvPorPartida*2) + (killsPorPartida*1) + (supPorPartida*0.5)
 // scoreFinal = (scoreBruto / maiorScoreBruto) * 10  → sempre 0–10
 // ============================================================
-const SCORE_WEIGHTS = { dano: 2, salvamentos: 2, kills: 1, suportes: 0.5 };
+const SCORE_WEIGHTS = { dano: 3, salvamentos: 3, kills: 2.5, suportes: 1.5 };
 
 // Retorna estatísticas brutas de um jogador em um conjunto de partidas
 function pStats(pid, matchList){
