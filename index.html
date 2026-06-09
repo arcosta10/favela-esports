@@ -555,8 +555,8 @@ function fmtMonthKey(key){ const mn=['Janeiro','Fevereiro','Março','Abril','Mai
 // ============================================================
 // ============================================================
 // SCORE CALC
-// Pesos: dano=2, salvamentos=2, kills=1, suportes=0.5
-// scoreBruto = (danoPorPartida*2) + (salvPorPartida*2) + (killsPorPartida*1) + (supPorPartida*0.5)
+// Pesos: dano=3, salvamentos=3, kills=2.5, suportes=1.5
+// scoreBruto = (danoPorPartida*3) + (salvPorPartida*3) + (killsPorPartida*2.5) + (supPorPartida*1.5)
 // scoreFinal = (scoreBruto / maiorScoreBruto) * 10  → sempre 0–10
 // ============================================================
 const SCORE_WEIGHTS = { dano: 3, salvamentos: 3, kills: 2.5, suportes: 1.5 };
@@ -617,13 +617,11 @@ function scoreToDisplay(s){ return s; }
 
 // Label e cor baseados no score final (0–10)
 function scoreDisplayStatus(s){
-  if(s >= 9.0) return {label:'Lenda',         color:'#FF00FF', bg:'rgba(255,0,255,0.15)'};
-  if(s >= 8.0) return {label:'Elite',         color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
-  if(s >= 7.0) return {label:'Pro',           color:'#00D084', bg:'rgba(0,208,132,0.12)'};
-  if(s >= 6.0) return {label:'Avançado',      color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
-  if(s >= 4.0) return {label:'Intermediário', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
-  if(s >= 2.0) return {label:'Iniciante',     color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
-  return              {label:'Café com leite',color:'#888',    bg:'rgba(128,128,128,0.1)'};
+  if(s >= 9.0) return {label:'Lenda',      color:'#FF00FF', bg:'rgba(255,0,255,0.15)'};
+  if(s >= 7.5) return {label:'Elite',      color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
+  if(s >= 6.0) return {label:'Pro',        color:'#00D084', bg:'rgba(0,208,132,0.12)'};
+  if(s >= 4.0) return {label:'Competitivo',color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
+  return              {label:'Em evolução',color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
 }
 
 // Atalho para score individual (compatibilidade com código existente)
@@ -934,12 +932,9 @@ function showWelcomeMessage(pid){
   let msg = null;
   let icon = '🎮';
 
-  if(label === 'Iniciante'){
+  if(label === 'Em evolução'){
     msg = 'Parabéns, falta pouco para você chegar no nível do FV PACO.';
     icon = '🎮';
-  } else if(label === 'Café com leite'){
-    msg = 'Parabéns, você é o PIOR.';
-    icon = '💀';
   }
 
   if(!msg) return;
@@ -1251,13 +1246,11 @@ function pgRankings(){
     <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);margin-bottom:10px"><i class="fas fa-info-circle" style="margin-right:6px"></i>Legenda de Níveis</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${[
-        {label:'Lenda',         color:'#FF00FF', range:'9.0 – 10.0'},
-        {label:'Elite',         color:'#FFD700', range:'8.0 – 8.99'},
-        {label:'Pro',           color:'#00D084', range:'7.0 – 7.99'},
-        {label:'Avançado',      color:'#00B8FF', range:'6.0 – 6.99'},
-        {label:'Intermediário', color:'#FF6B35', range:'4.0 – 5.99'},
-        {label:'Iniciante',     color:'#EF4444', range:'2.0 – 3.99'},
-        {label:'Café com leite',color:'#888',    range:'0 – 1.99'},
+        {label:'Lenda',      color:'#FF00FF', range:'9.0 – 10.0'},
+        {label:'Elite',      color:'#FFD700', range:'7.5 – 8.99'},
+        {label:'Pro',        color:'#00D084', range:'6.0 – 7.49'},
+        {label:'Competitivo',color:'#00B8FF', range:'4.0 – 5.99'},
+        {label:'Em evolução',color:'#FF6B35', range:'0 – 3.99'},
       ].map(n=>`
         <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border-radius:6px;padding:5px 10px">
           <div style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0"></div>
