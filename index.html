@@ -553,10 +553,13 @@ function currentMonthKey(){ const n=new Date(); return `${n.getFullYear()}-${Str
 function fmtMonthKey(key){ const mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; const[y,m]=key.split('-'); return `${mn[+m-1]} ${y}`; }
 
 // ============================================================
-// SCORE CALC — normalizado por período
-// Pesos ajustáveis aqui:
-const SCORE_WEIGHTS = { dano: 2, salvamentos: 2, kills: 1, suportes: 0.5 };
 // ============================================================
+// SCORE CALC
+// Pesos: dano=2, salvamentos=2, kills=1, suportes=0.5
+// scoreBruto = (danoPorPartida*2) + (salvPorPartida*2) + (killsPorPartida*1) + (supPorPartida*0.5)
+// scoreFinal = (scoreBruto / maiorScoreBruto) * 10  → sempre 0–10
+// ============================================================
+const SCORE_WEIGHTS = { dano: 2, salvamentos: 2, kills: 1, suportes: 0.5 };
 
 // Retorna estatísticas brutas de um jogador em um conjunto de partidas
 function pStats(pid, matchList){
@@ -568,75 +571,59 @@ function pStats(pid, matchList){
   return{dano,kills,salv,sup,col,n};
 }
 
-// Calcula score normalizado de um conjunto de jogadores dentro de um período
-// Retorna array de {player, st, medias, score}
 function calcRanking(matchList){
   const ms = matchList || MATCHES;
+  const W  = SCORE_WEIGHTS;
 
-  // 1. Calcula stats brutas de cada jogador
+  // 1. Calcula médias e scoreBruto de cada jogador
   const data = PLAYERS.map(p => {
     const st = pStats(p.id, ms);
     const n  = st.n;
-    return {
-      ...p,
-      st,
-      medias: {
-        dano : n ? st.dano / n : 0,
-        kills: n ? st.kills / n : 0,
-        salv : n ? st.salv / n : 0,
-        sup  : n ? st.sup  / n : 0,
-        col  : n ? st.col  / n : 0,
-      }
+    const medias = {
+      dano : n ? st.dano  / n : 0,
+      kills: n ? st.kills / n : 0,
+      salv : n ? st.salv  / n : 0,
+      sup  : n ? st.sup   / n : 0,
+      col  : n ? st.col   / n : 0,
     };
+    const scoreBruto = n
+      ? parseFloat(((medias.dano * W.dano) + (medias.salv * W.salvamentos) + (medias.kills * W.kills) + (medias.sup * W.suportes)).toFixed(4))
+      : 0;
+    return { ...p, st, medias, scoreBruto };
   });
 
-  // 2. Encontra o maior valor médio de cada stat (entre jogadores com partidas)
-  const max = {
-    dano : Math.max(...data.map(p => p.medias.dano)),
-    kills: Math.max(...data.map(p => p.medias.kills)),
-    salv : Math.max(...data.map(p => p.medias.salv)),
-    sup  : Math.max(...data.map(p => p.medias.sup)),
-  };
-
-  // 3. Calcula score normalizado com os pesos + contribuições por categoria
-  const W = SCORE_WEIGHTS;
-  const SCORE_MAX = W.dano + W.salvamentos + W.kills + W.suportes; // 5.5
+  // 2. Normaliza para 0–10 usando o maior scoreBruto do grupo
+  const maiorBruto = Math.max(...data.map(p => p.scoreBruto), 0.0001);
   data.forEach(p => {
-    if(!p.st.n){ p.score=0; p.contrib={dano:0,salv:0,kills:0,sup:0}; return; }
-    const norm = (val, maxVal) => maxVal > 0 ? val / maxVal : 0;
-    const contrib = {
-      dano  : parseFloat((norm(p.medias.dano,  max.dano)  * W.dano        ).toFixed(3)),
-      salv  : parseFloat((norm(p.medias.salv,  max.salv)  * W.salvamentos ).toFixed(3)),
-      kills : parseFloat((norm(p.medias.kills, max.kills) * W.kills       ).toFixed(3)),
-      sup   : parseFloat((norm(p.medias.sup,   max.sup)   * W.suportes    ).toFixed(3)),
+    const sf = p.st.n ? parseFloat((p.scoreBruto / maiorBruto * 10).toFixed(2)) : 0;
+    p.score        = sf;           // score final 0–10 (usado em todo o sistema)
+    p.scoreDisplay = sf;           // sem conversão extra — já é 0–10
+    p.scorePct     = parseFloat((sf * 10).toFixed(1)); // % do máximo
+    p.scoreStatus  = scoreDisplayStatus(sf);
+    p.contrib      = {
+      dano : parseFloat((p.medias.dano  * W.dano        ).toFixed(1)),
+      salv : parseFloat((p.medias.salv  * W.salvamentos ).toFixed(1)),
+      kills: parseFloat((p.medias.kills * W.kills       ).toFixed(1)),
+      sup  : parseFloat((p.medias.sup   * W.suportes    ).toFixed(1)),
     };
-    p.contrib = contrib;
-    p.score   = parseFloat((contrib.dano + contrib.salv + contrib.kills + contrib.sup).toFixed(2));
-    p.scorePct = parseFloat((p.score / SCORE_MAX * 100).toFixed(1));
-    p.scoreDisplay = scoreToDisplay(p.score);
-    p.scoreStatus = scoreDisplayStatus(p.scoreDisplay);
   });
 
-  // 4. Ordena por score desc
+  // 3. Ordena por score desc, desempate por dano médio
   return data.sort((a,b) => b.score - a.score || b.medias.dano - a.medias.dano);
 }
 
-// Converte score bruto (0–5.5) para nota exibida (0–10) por faixas proporcionais
-function scoreToDisplay(s){
-  if(s >= 5.00) return parseFloat((9.0 + (s - 5.00) / (5.50 - 5.00) * 1.0).toFixed(2));  // 5.00–5.50 → 9.0–10.0
-  if(s >= 4.00) return parseFloat((6.0 + (s - 4.00) / (4.99 - 4.00) * 2.99).toFixed(2)); // 4.00–4.99 → 6.0–8.99
-  if(s >= 2.00) return parseFloat((2.0 + (s - 2.00) / (3.99 - 2.00) * 3.99).toFixed(2)); // 2.00–3.99 → 2.0–5.99
-  return parseFloat((s / 1.99 * 1.99).toFixed(2));                                         // 0.00–1.99 → 0.0–1.99
-}
+// scoreToDisplay não é mais necessária (score já é 0–10), mantida por compatibilidade
+function scoreToDisplay(s){ return s; }
 
-// Label e cor baseados na nota exibida (0–10)
-function scoreDisplayStatus(displayed){
-  if(displayed >= 9.0) return {label:'Elite',         color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
-  if(displayed >= 8.0) return {label:'Pro',           color:'#00D084', bg:'rgba(0,208,132,0.12)'};
-  if(displayed >= 6.0) return {label:'Avançado',      color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
-  if(displayed >= 4.0) return {label:'Intermediário', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
-  if(displayed >= 2.0) return {label:'Iniciante',     color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
-  return                      {label:'Café com leite', color:'#888',    bg:'rgba(128,128,128,0.1)'};
+// Label e cor baseados no score final (0–10)
+function scoreDisplayStatus(s){
+  if(s >= 9.0) return {label:'Lenda',         color:'#FF00FF', bg:'rgba(255,0,255,0.15)'};
+  if(s >= 8.0) return {label:'Elite',         color:'#FFD700', bg:'rgba(255,215,0,0.15)'};
+  if(s >= 7.0) return {label:'Pro',           color:'#00D084', bg:'rgba(0,208,132,0.12)'};
+  if(s >= 6.0) return {label:'Avançado',      color:'#00B8FF', bg:'rgba(0,184,255,0.12)'};
+  if(s >= 4.0) return {label:'Intermediário', color:'#FF6B35', bg:'rgba(255,107,53,0.12)'};
+  if(s >= 2.0) return {label:'Iniciante',     color:'#EF4444', bg:'rgba(239,68,68,0.12)'};
+  return              {label:'Café com leite',color:'#888',    bg:'rgba(128,128,128,0.1)'};
 }
 
 // Atalho para score individual (compatibilidade com código existente)
@@ -1172,7 +1159,7 @@ function buildRankTbl(matchList, label, icon, color){
     return `${matchList.length} partida(s)`;
   };
   const W = SCORE_WEIGHTS;
-  const scoreMax = W.dano + W.salvamentos + W.kills + W.suportes;
+  const scoreMax = 10;
   return`<div class="tw">
     <div class="tw-hdr">
       <h3><i class="fas ${icon}" style="color:${color};margin-right:6px"></i>${label} <span style="color:var(--gray);font-size:11px;font-weight:400;letter-spacing:0.05em">${getPeriodLabel()}</span></h3>
@@ -1180,7 +1167,7 @@ function buildRankTbl(matchList, label, icon, color){
     </div>
     <div style="background:rgba(255,215,0,0.04);padding:8px 16px;font-size:11px;color:var(--gray);border-bottom:1px solid rgba(255,215,0,0.08)">
       <i class="fas fa-info-circle" style="color:var(--gold2);margin-right:5px"></i>
-      Pesos: Dano ×${W.dano} · Salvamentos ×${W.salvamentos} · Kills ×${W.kills} · Suportes ×${W.suportes} · Score máx: <b style="color:var(--gold)">${scoreMax}</b>
+      Pesos: Dano ×${W.dano} · Salvamentos ×${W.salvamentos} · Kills ×${W.kills} · Suportes ×${W.suportes} · Score máx: <b style="color:var(--gold)">10</b>
     </div>
     <div style="overflow-x:auto"><table class="tbl">
     <thead><tr><th>#</th><th>Jogador</th><th>Score</th><th>Nível</th><th>Dano/Pt</th><th>Kills/Pt</th><th>Salv./Pt</th><th>Sup./Pt</th><th>Col.Méd</th><th>Pts</th><th>Aptidão</th></tr></thead>
@@ -1264,12 +1251,13 @@ function pgRankings(){
     <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:var(--gray);margin-bottom:10px"><i class="fas fa-info-circle" style="margin-right:6px"></i>Legenda de Níveis</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       ${[
-        {label:'Elite',         color:'#FFD700', range:'9.0 – 10.0'},
-        {label:'Pro',           color:'#00D084', range:'8.0 – 8.9'},
-        {label:'Avançado',      color:'#00B8FF', range:'6.0 – 7.9'},
-        {label:'Intermediário', color:'#FF6B35', range:'4.0 – 5.9'},
-        {label:'Iniciante',     color:'#EF4444', range:'2.0 – 3.9'},
-        {label:'Café com leite',color:'#888',    range:'0 – 1.9'},
+        {label:'Lenda',         color:'#FF00FF', range:'9.0 – 10.0'},
+        {label:'Elite',         color:'#FFD700', range:'8.0 – 8.99'},
+        {label:'Pro',           color:'#00D084', range:'7.0 – 7.99'},
+        {label:'Avançado',      color:'#00B8FF', range:'6.0 – 6.99'},
+        {label:'Intermediário', color:'#FF6B35', range:'4.0 – 5.99'},
+        {label:'Iniciante',     color:'#EF4444', range:'2.0 – 3.99'},
+        {label:'Café com leite',color:'#888',    range:'0 – 1.99'},
       ].map(n=>`
         <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border-radius:6px;padding:5px 10px">
           <div style="width:10px;height:10px;border-radius:50%;background:${n.color};flex-shrink:0"></div>
@@ -1319,8 +1307,7 @@ function pgPlayers(){
   const rkSemanal = calcRanking(getWeekFilter());
   const rkMensal  = calcRanking(getMonthFilter());
   const posIn=(rk,pid)=>{const i=rk.findIndex(p=>+p.id===+pid);return i>=0?'#'+(i+1):'-';};
-  const W = SCORE_WEIGHTS;
-  const scoreMax = W.dano + W.salvamentos + W.kills + W.suportes;
+  const scoreMax = 10;
 
   // Ordena jogadores pelo ranking geral (sem partidas vai para o final)
   const sortedPlayers = [...PLAYERS].sort((a,b)=>{
@@ -1941,7 +1928,7 @@ function pgPlayerProfile(playerId){
   const rkP=rkAll.find(p=>+p.id===pid), sc=rkP?.score??0, med=rkP?.medias??{dano:0,kills:0,salv:0,sup:0,col:0};
   const scD=rkP?.scoreDisplay??scoreToDisplay(sc);
   const contrib=rkP?.contrib??{dano:0,salv:0,kills:0,sup:0}, ss=rkP?.scoreStatus??{label:'—',color:'#888',bg:'rgba(128,128,128,0.1)'};
-  const apt=stAll.n>=40, W=SCORE_WEIGHTS, scoreMax=W.dano+W.salvamentos+W.kills+W.suportes;
+  const apt=stAll.n>=40, W=SCORE_WEIGHTS, scoreMax=10;
   const scorePct=scD?(scD/10*100).toFixed(1):0;
   const mapas=[...new Set(MATCHES.map(m=>m.mapa).filter(Boolean))];
   const mapStats=mapas.map(mapa=>{const ms=MATCHES.filter(m=>m.mapa===mapa);const st=pStats(pid,ms);return{mapa,n:st.n,dano:st.n?+(st.dano/st.n).toFixed(0):0,kills:st.n?+(st.kills/st.n).toFixed(2):0,salv:st.n?+(st.salv/st.n).toFixed(2):0,sup:st.n?+(st.sup/st.n).toFixed(2):0};}).filter(m=>m.n>0).sort((a,b)=>b.n-a.n);
