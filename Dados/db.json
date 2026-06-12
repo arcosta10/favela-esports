@@ -114,6 +114,52 @@
   ],
   "partidas": [
     {
+      "id": 1781304892534,
+      "data": "2026-06-12",
+      "scrim": null,
+      "mapa": "Miramar",
+      "foto1_url": null,
+      "foto2_url": null,
+      "estatisticas": [
+        {
+          "jogador_id": 5,
+          "dano": 195,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 2,
+          "partida_id": 1781304892534
+        },
+        {
+          "jogador_id": 1,
+          "dano": 65,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 2,
+          "partida_id": 1781304892534
+        },
+        {
+          "jogador_id": 6,
+          "dano": 38,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 2,
+          "partida_id": 1781304892534
+        },
+        {
+          "jogador_id": 8,
+          "dano": 119,
+          "kills": 0,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 2,
+          "partida_id": 1781304892534
+        }
+      ]
+    },
+    {
       "id": 1781304813800,
       "data": "2026-06-12",
       "scrim": "Camp",
