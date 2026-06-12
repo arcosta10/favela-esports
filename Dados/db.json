@@ -114,6 +114,52 @@
   ],
   "partidas": [
     {
+      "id": 1781304813800,
+      "data": "2026-06-12",
+      "scrim": "Camp",
+      "mapa": "Rondo",
+      "foto1_url": null,
+      "foto2_url": null,
+      "estatisticas": [
+        {
+          "jogador_id": 8,
+          "dano": 456,
+          "kills": 1,
+          "salvamentos": 1,
+          "suportes": 0,
+          "colocacao": 3,
+          "partida_id": 1781304813800
+        },
+        {
+          "jogador_id": 5,
+          "dano": 432,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 3,
+          "partida_id": 1781304813800
+        },
+        {
+          "jogador_id": 1,
+          "dano": 630,
+          "kills": 3,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 3,
+          "partida_id": 1781304813800
+        },
+        {
+          "jogador_id": 6,
+          "dano": 325,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 1,
+          "colocacao": 3,
+          "partida_id": 1781304813800
+        }
+      ]
+    },
+    {
       "id": 1781304746098,
       "data": "2026-06-12",
       "scrim": "Camp",
