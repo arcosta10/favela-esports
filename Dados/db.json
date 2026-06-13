@@ -118,8 +118,8 @@
       "data": "2026-06-13",
       "scrim": null,
       "mapa": "Rondo",
-      "foto1_url": null,
-      "foto2_url": null,
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1781309239617_foto1.jpg?v=1781309240703",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1781309239617_foto2.jpg?v=1781309242380",
       "estatisticas": [
         {
           "jogador_id": 5,
