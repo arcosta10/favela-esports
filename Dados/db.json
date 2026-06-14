@@ -114,6 +114,43 @@
   ],
   "partidas": [
     {
+      "id": 1781469615249,
+      "data": "2026-06-14",
+      "scrim": null,
+      "mapa": "Miramar",
+      "foto1_url": null,
+      "foto2_url": null,
+      "estatisticas": [
+        {
+          "jogador_id": 5,
+          "dano": 199,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1781469615249
+        },
+        {
+          "jogador_id": 6,
+          "dano": 160,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1781469615249
+        },
+        {
+          "jogador_id": 1,
+          "dano": 272,
+          "kills": 2,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 14,
+          "partida_id": 1781469615249
+        }
+      ]
+    },
+    {
       "id": 1781469575399,
       "data": "2026-06-14",
       "scrim": null,
