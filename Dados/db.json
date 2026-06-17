@@ -114,6 +114,43 @@
   ],
   "partidas": [
     {
+      "id": 1781725106168,
+      "data": "2026-06-17",
+      "scrim": null,
+      "mapa": "Erangel",
+      "foto1_url": null,
+      "foto2_url": null,
+      "estatisticas": [
+        {
+          "jogador_id": 6,
+          "dano": 317,
+          "kills": 1,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 1,
+          "partida_id": 1781725106168
+        },
+        {
+          "jogador_id": 5,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 0,
+          "colocacao": 1,
+          "partida_id": 1781725106168
+        },
+        {
+          "jogador_id": 3,
+          "dano": 53,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 2,
+          "colocacao": 1,
+          "partida_id": 1781725106168
+        }
+      ]
+    },
+    {
       "id": 1781725077933,
       "data": "2026-06-17",
       "scrim": null,
