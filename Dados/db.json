@@ -114,6 +114,34 @@
   ],
   "partidas": [
     {
+      "id": 1781724881117,
+      "data": "2026-06-17",
+      "scrim": null,
+      "mapa": "Rondo",
+      "foto1_url": null,
+      "foto2_url": null,
+      "estatisticas": [
+        {
+          "jogador_id": 5,
+          "dano": 209,
+          "kills": 0,
+          "salvamentos": 0,
+          "suportes": 2,
+          "colocacao": 40,
+          "partida_id": 1781724881117
+        },
+        {
+          "jogador_id": 3,
+          "dano": 0,
+          "kills": 0,
+          "salvamentos": 2,
+          "suportes": 0,
+          "colocacao": 40,
+          "partida_id": 1781724881117
+        }
+      ]
+    },
+    {
       "id": 1781724723200,
       "data": "2026-06-17",
       "scrim": null,
