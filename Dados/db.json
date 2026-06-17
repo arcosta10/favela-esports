@@ -118,8 +118,8 @@
       "data": "2026-06-17",
       "scrim": null,
       "mapa": "Miramar",
-      "foto1_url": null,
-      "foto2_url": null,
+      "foto1_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1781724355914_foto1.jpg?v=1781724357249",
+      "foto2_url": "https://raw.githubusercontent.com/arcosta10/favela-esports/main/Dados/matches/1781724355914_foto2.jpg?v=1781724359094",
       "estatisticas": [
         {
           "jogador_id": 3,
